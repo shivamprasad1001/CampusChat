@@ -23,9 +23,9 @@ Be respectful, inclusive, and constructive. We're all here to build something us
 
 ```bash
 # Fork the repo on GitHub, then:
-git clone https://github.com/YOUR_USERNAME/campuschat.git
-cd campuschat
-git remote add upstream https://github.com/ORIGINAL_OWNER/campuschat.git
+git clone https://github.com/shivamprasad1001/CampusChat.git
+cd CampusChat
+git remote add upstream https://github.com/shivamprasad1001/CampusChat.git
 ```
 
 ### 3. Create a branch
