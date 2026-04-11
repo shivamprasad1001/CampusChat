@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import api from '@/lib/api'
 import { Message } from '@/types'
@@ -8,8 +8,8 @@ import { io, Socket } from 'socket.io-client'
 
 export function useMessages(roomId: string) {
   const [messages, setMessages] = useState<Message[]>([])
-  const [socket, setSocket] = useState<Socket | null>(null)
   const [typingUsers, setTypingUsers] = useState<{ userId: string, name: string }[]>([])
+  const socketRef = useRef<Socket | null>(null)
 
   useEffect(() => {
     // 1. Fetch history
@@ -25,7 +25,7 @@ export function useMessages(roomId: string) {
 
     // 2. Setup Socket.IO
     const s = io(process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000')
-    setSocket(s)
+    socketRef.current = s
 
     s.emit('join_room', { roomId })
 
@@ -39,10 +39,10 @@ export function useMessages(roomId: string) {
         return [...prev, { userId, name }]
       })
       
-      // Remove typing indicator after 3 seconds
+      // Let the indicator fade quickly so it feels responsive.
       setTimeout(() => {
         setTypingUsers((prev) => prev.filter(u => u.userId !== userId))
-      }, 3000)
+      }, 2000)
     })
 
     s.on('reaction_update', ({ messageId, reactions }) => {
@@ -71,27 +71,28 @@ export function useMessages(roomId: string) {
 
     return () => {
       s.disconnect()
+      socketRef.current = null
       supabase.removeChannel(channel)
     }
   }, [roomId])
 
   const sendMessage = useCallback((content: string, fileUrl?: string, userId?: string) => {
-    if (socket) {
-      socket.emit('send_message', { roomId, content, fileUrl, userId })
+    if (socketRef.current) {
+      socketRef.current.emit('send_message', { roomId, content, fileUrl, userId })
     }
-  }, [socket, roomId])
+  }, [roomId])
 
   const sendTyping = useCallback((userId: string, name: string) => {
-    if (socket) {
-      socket.emit('typing', { roomId, userId, name })
+    if (socketRef.current) {
+      socketRef.current.emit('typing', { roomId, userId, name })
     }
-  }, [socket, roomId])
+  }, [roomId])
 
   const toggleReaction = useCallback((messageId: string, emoji: string, userId: string) => {
-    if (socket) {
-      socket.emit('toggle_reaction', { roomId, messageId, emoji, userId })
+    if (socketRef.current) {
+      socketRef.current.emit('toggle_reaction', { roomId, messageId, emoji, userId })
     }
-  }, [socket, roomId])
+  }, [roomId])
 
   return { messages, sendMessage, sendTyping, toggleReaction, typingUsers }
 }

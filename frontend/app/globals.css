@@ -1,53 +1,56 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-body);
 }
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 224 71.4% 4.1%;
-    --card: 0 0% 100%;
-    --card-foreground: 224 71.4% 4.1%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 224 71.4% 4.1%;
-    --primary: 243.4 75.4% 58.6%; /* Indigo 600 */
-    --primary-foreground: 210 20% 98%;
-    --secondary: 220 14.3% 95.9%;
-    --secondary-foreground: 220.9 39.3% 11%;
-    --muted: 220 14.3% 95.9%;
-    --muted-foreground: 220 8.9% 46.1%;
-    --accent: 220 14.3% 95.9%;
-    --accent-foreground: 220.9 39.3% 11%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 20% 98%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 243.4 75.4% 58.6%;
-    --radius: 0.75rem;
-  }
-
-  .dark {
-    --background: 224 71.4% 4.1%;
-    --foreground: 210 20% 98%;
-    --card: 224 71.4% 4.1%;
-    --card-foreground: 210 20% 98%;
-    --popover: 224 71.4% 4.1%;
-    --popover-foreground: 210 20% 98%;
-    --primary: 243.4 75.4% 65%; /* Indigo 400ish */
-    --primary-foreground: 224 71.4% 4.1%;
-    --secondary: 215 27.9% 16.9%;
-    --secondary-foreground: 210 20% 98%;
-    --muted: 215 27.9% 16.9%;
-    --muted-foreground: 217.9 10.6% 64.9%;
-    --accent: 215 27.9% 16.9%;
-    --accent-foreground: 210 20% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 20% 98%;
-    --border: 215 27.9% 16.9%;
-    --input: 215 27.9% 16.9%;
-    --ring: 243.4 75.4% 65%;
+    color-scheme: dark;
+    --font-display:
+      "Aptos Display", "SF Pro Display", "Segoe UI Variable Display", "Helvetica Neue",
+      sans-serif;
+    --font-body:
+      "Aptos", "SF Pro Text", "Segoe UI Variable Text", "Helvetica Neue", sans-serif;
+    --font-mono:
+      "JetBrains Mono", "SFMono-Regular", "Cascadia Code", "Menlo", monospace;
+    --bg-base: #0d0f12;
+    --bg-surface: #13161b;
+    --bg-elevated: #1a1e25;
+    --bg-hover: #1f242d;
+    --border-subtle: #252a34;
+    --border-default: #2e3440;
+    --text-primary: #e8eaf0;
+    --text-secondary: #8b93a4;
+    --text-muted: #555e70;
+    --accent: #4f8ef7;
+    --accent-hover: #6ba3ff;
+    --accent-glow: rgba(79, 142, 247, 0.15);
+    --online: #3ecf8e;
+    --danger: #f06a6a;
+    --warning: #f0a84a;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --radius: 12px;
+    --background: var(--bg-base);
+    --foreground: var(--text-primary);
+    --card: var(--bg-surface);
+    --card-foreground: var(--text-primary);
+    --popover: var(--bg-surface);
+    --popover-foreground: var(--text-primary);
+    --primary: var(--accent);
+    --primary-foreground: #f7fbff;
+    --secondary: var(--bg-elevated);
+    --secondary-foreground: var(--text-primary);
+    --muted: var(--bg-elevated);
+    --muted-foreground: var(--text-secondary);
+    --accent-foreground: var(--text-primary);
+    --destructive: var(--danger);
+    --destructive-foreground: #fff5f5;
+    --border: var(--border-default);
+    --input: var(--bg-elevated);
+    --ring: var(--accent);
   }
 }
 
@@ -55,8 +58,155 @@
   * {
     border-color: var(--border);
   }
+
+  *::selection {
+    background: rgba(79, 142, 247, 0.28);
+    color: var(--text-primary);
+  }
+
+  html {
+    background:
+      radial-gradient(circle at top, rgba(79, 142, 247, 0.08), transparent 28%),
+      linear-gradient(180deg, #11141a 0%, var(--bg-base) 100%);
+  }
+
   body {
     background-color: var(--background);
     color: var(--foreground);
+    font-family: var(--font-body), sans-serif;
+    font-size: 13px;
+    line-height: 1.6;
+    min-height: 100vh;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display), sans-serif;
+    letter-spacing: -0.03em;
+  }
+
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: var(--font-mono), monospace;
+  }
+
+  a {
+    transition: color 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  button,
+  input,
+  textarea,
+  [contenteditable="true"] {
+    transition:
+      background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  :focus {
+    outline: none;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-default);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-default) transparent;
+  }
+}
+
+@utility font-body {
+  font-family: var(--font-body), sans-serif;
+}
+
+@utility font-display {
+  font-family: var(--font-display), sans-serif;
+}
+
+@utility font-mono {
+  font-family: var(--font-mono), monospace;
+}
+
+@utility app-shell {
+  background:
+    radial-gradient(circle at top left, rgba(79, 142, 247, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 16%),
+    var(--bg-base);
+}
+
+@utility subtle-divider {
+  border-color: var(--border-subtle);
+}
+
+@utility elevated-panel {
+  background: color-mix(in srgb, var(--bg-surface) 84%, transparent);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-md);
+}
+
+@keyframes chat-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes typing-dot {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.72);
+    opacity: 0.48;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes reaction-pop {
+  0% {
+    transform: scale(0.88);
+  }
+  60% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
   }
 }

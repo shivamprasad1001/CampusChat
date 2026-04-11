@@ -1,9 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Paperclip, Send, Smile } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Paperclip, Send, SmilePlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
 
@@ -12,94 +10,163 @@ interface MessageInputProps {
   onTyping: () => void
 }
 
-export default function MessageInput({ onSendMessage, onTyping }: MessageInputProps) {
+export default function MessageInput({
+  onSendMessage,
+  onTyping,
+}: MessageInputProps) {
   const [content, setContent] = useState('')
+  const [isFocused, setIsFocused] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const editorRef = useRef<HTMLDivElement>(null)
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!content.trim()) return
-    onSendMessage(content)
-    setContent('')
+  useEffect(() => {
+    if (!editorRef.current) return
+    if (editorRef.current.innerText === content) return
+    editorRef.current.innerText = content
+  }, [content])
+
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const emitTyping = () => {
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current)
+    }
+
+    typingTimeoutRef.current = setTimeout(() => {
+      onTyping()
+    }, 300)
   }
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const submit = (fileUrl?: string) => {
+    const nextContent = editorRef.current?.innerText.trim() ?? content.trim()
+
+    if (!nextContent && !fileUrl) return
+
+    onSendMessage(nextContent, fileUrl)
+    setContent('')
+
+    if (editorRef.current) {
+      editorRef.current.innerText = ''
+    }
+  }
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
     if (!file) return
 
     setIsUploading(true)
+
     const formData = new FormData()
     formData.append('file', file)
 
     try {
       const { data } = await api.post('/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
       })
-      onSendMessage('', data.url)
-    } catch (err) {
-      console.error('Upload failed', err)
+      submit(data.url)
+    } catch (error) {
+      console.error('Upload failed', error)
     } finally {
       setIsUploading(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     }
   }
 
   return (
-    <div className="p-4 bg-white dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800">
-      <form onSubmit={handleSubmit} className="flex items-center space-x-2 max-w-6xl mx-auto">
-        <input 
-          type="file" 
-          hidden 
-          ref={fileInputRef} 
-          onChange={handleFileChange}
-        />
-        
-        <Button 
-          type="button" 
-          variant="ghost" 
-          size="icon" 
-          className="text-gray-500 hover:text-indigo-600 transition-colors"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploading}
-        >
-          <Paperclip className="h-5 w-5" />
-        </Button>
+    <div className="px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 md:px-4">
+      <input
+        type="file"
+        hidden
+        ref={fileInputRef}
+        onChange={handleFileChange}
+      />
 
-        <div className="relative flex-1 group">
-          <Input 
-            value={content}
-            onChange={(e) => {
-              setContent(e.target.value)
-              onTyping()
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleSubmit(e)
-              }
-            }}
-            placeholder="Type your message..."
-            className="pr-12 bg-gray-100/50 dark:bg-gray-900 border-none focus-visible:ring-1 focus-visible:ring-indigo-500 rounded-xl py-6 h-auto"
-          />
-          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
-            <Smile className="h-5 w-5 text-gray-400 cursor-pointer hover:text-orange-500 transition-colors" />
+      <div
+        className={cn(
+          'mx-auto max-w-[960px] rounded-[14px] border bg-[var(--bg-elevated)] shadow-[var(--shadow-md)]',
+          isFocused
+            ? 'border-[var(--accent)] shadow-[0_0_0_4px_var(--accent-glow),var(--shadow-md)]'
+            : 'border-[var(--border-default)]'
+        )}
+      >
+        <div className="flex min-h-20 items-end gap-2 px-3 py-3">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="mb-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label="Attach file"
+          >
+            <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.7} />
+          </button>
+
+          <div className="flex-1">
+            <label className="mb-1 block text-[11px] font-medium text-[var(--text-muted)]">
+              Message
+            </label>
+            <div
+              ref={editorRef}
+              contentEditable
+              role="textbox"
+              aria-multiline="true"
+              data-placeholder="Message the room, use @mentions, or press / for commands"
+              className="relative min-h-[44px] max-h-40 overflow-y-auto rounded-[10px] px-1 py-1 text-[15px] leading-[1.6] text-[var(--text-primary)] outline-none before:pointer-events-none before:absolute before:text-[var(--text-muted)] empty:before:content-[attr(data-placeholder)]"
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              onInput={(event) => {
+                const nextValue = event.currentTarget.innerText.replace(/\n{3,}/g, '\n\n')
+                setContent(nextValue)
+                emitTyping()
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  submit()
+                }
+              }}
+              suppressContentEditableWarning
+            />
           </div>
+
+          <button
+            type="button"
+            className="mb-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+            aria-label="Add emoji"
+          >
+            <SmilePlus className="h-[18px] w-[18px]" strokeWidth={1.7} />
+          </button>
+
+          <button
+            type="button"
+            disabled={!content.trim() || isUploading}
+            onClick={() => submit()}
+            className={cn(
+              'mb-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] shadow-[var(--shadow-sm)]',
+              content.trim()
+                ? 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] active:scale-[0.96]'
+                : 'bg-[var(--bg-hover)] text-[var(--text-muted)]'
+            )}
+            aria-label="Send message"
+          >
+            <Send className="h-4 w-4" strokeWidth={1.8} />
+          </button>
         </div>
 
-        <Button 
-          type="submit" 
-          size="icon" 
-          disabled={!content.trim() || isUploading}
-          className={cn(
-            "h-12 w-12 rounded-xl shadow-lg transition-all",
-            content.trim() 
-              ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-200 dark:shadow-none hover:scale-105 active:scale-95" 
-              : "bg-gray-100 dark:bg-gray-800 text-gray-400"
-          )}
-        >
-          <Send className="h-5 w-5" />
-        </Button>
-      </form>
+        <div className="flex items-center justify-between border-t border-[var(--border-subtle)] px-3 py-2 text-[11px] text-[var(--text-muted)]">
+          <span>Enter to send • Shift+Enter for a new line</span>
+          <span>{isUploading ? 'Uploading attachment…' : `${content.length} characters`}</span>
+        </div>
+      </div>
     </div>
   )
 }
