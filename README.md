@@ -138,4 +138,4 @@ Free to use, fork, and self-host. If you deploy this at your college, we'd love 
 
 ---
 
-> Built at NITRA Technical Campus · Powered by CodSoc · Open Source Forever
+> Built at NITRA Technical Campus · Powered by TriviLabs · Open Source Forever
