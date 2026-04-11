@@ -64,8 +64,8 @@ First deployed at **NITRA Technical Campus, Ghaziabad**. Designed so any college
 
 ```bash
 # Clone the repo
-git clone https://github.com/YOUR_USERNAME/campuschat.git
-cd campuschat
+git clone https://github.com/shivamprasad1001/CampusChat.git
+cd CampusChat
 
 # Install dependencies
 npm install
