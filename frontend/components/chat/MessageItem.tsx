@@ -198,14 +198,11 @@ export default function MessageItem({
       )}>
         <div className="flex items-center gap-0.5 rounded-[10px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-1 shadow-[var(--shadow-md)]">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex h-7 w-7 items-center justify-center rounded-[8px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-                aria-label="Add reaction"
-              >
-                <SmilePlus className="h-4 w-4" strokeWidth={1.6} />
-              </button>
+            <DropdownMenuTrigger
+              className="inline-flex h-7 w-7 items-center justify-center rounded-[8px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+              aria-label="Add reaction"
+            >
+              <SmilePlus className="h-4 w-4" strokeWidth={1.6} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align={isOwn ? 'start' : 'end'} className="bg-[var(--bg-elevated)] border-[var(--border-subtle)] min-w-0">
               <div className="flex gap-1 p-1">
@@ -231,14 +228,11 @@ export default function MessageItem({
           </ToolbarButton>
 
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className="inline-flex h-7 w-7 items-center justify-center rounded-[8px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-                aria-label="More actions"
-              >
-                <MoreHorizontal className="h-4 w-4" strokeWidth={1.6} />
-              </button>
+            <DropdownMenuTrigger
+              className="inline-flex h-7 w-7 items-center justify-center rounded-[8px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+              aria-label="More actions"
+            >
+              <MoreHorizontal className="h-4 w-4" strokeWidth={1.6} />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align={isOwn ? 'start' : 'end'}
