@@ -1,13 +1,16 @@
-import express from 'express';
+import express, { type Response } from 'express';
 import { supabase } from '../lib/supabase.js';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Add or remove reaction
-router.post('/', authMiddleware, async (req: AuthRequest, res: any) => {
+router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'User not authenticated' });
+
   const { messageId, emoji } = req.body;
-  const userId = req.user.id;
+  const userId = user.id;
 
   if (!messageId || !emoji) {
     return res.status(400).json({ error: 'Missing messageId or emoji' });
@@ -20,7 +23,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: any) => {
     .eq('message_id', messageId)
     .eq('user_id', userId)
     .eq('emoji', emoji)
-    .single();
+    .maybeSingle();
 
   if (existing) {
     // Remove if it exists (toggle behavior)
@@ -29,7 +32,10 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: any) => {
       .delete()
       .eq('id', existing.id);
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      console.error(`[Reactions] Delete error for message ${messageId}:`, error);
+      return res.status(500).json({ error: error.message });
+    }
     return res.json({ status: 'removed' });
   } else {
     // Add if it doesn't
@@ -43,7 +49,10 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: any) => {
       .select()
       .single();
 
-    if (error) return res.status(500).json({ error: error.message });
+    if (error) {
+      console.error(`[Reactions] Insert error for message ${messageId}:`, error);
+      return res.status(500).json({ error: error.message });
+    }
     return res.json({ status: 'added', reaction: data });
   }
 });

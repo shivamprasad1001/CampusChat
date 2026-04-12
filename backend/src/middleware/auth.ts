@@ -1,33 +1,33 @@
 import type { Request, Response, NextFunction } from 'express'
 import { supabase } from '../lib/supabase.js'
+import type { User } from '@supabase/supabase-js'
 
 export interface AuthRequest extends Request {
-  user?: any;
-  file?: any;
+  user?: User;
+  file?: Express.Multer.File;
 }
 
 export async function authMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
-  const token = req.headers.authorization?.split(' ')[1]
-  
+  const authHeader = req.headers.authorization
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : authHeader
+
   if (!token) {
-    console.error('No token provided in headers')
+    console.error('[Auth] No token provided')
     return res.status(401).json({ error: 'Unauthorized: No token provided' })
   }
 
   try {
-    console.log(`Verifying token: ${token.substring(0, 10)}...`)
     const { data: { user }, error } = await supabase.auth.getUser(token)
     
     if (error || !user) {
-      console.error('Auth error:', error?.message || 'User not found')
+      console.error('[Auth] User verification failed:', error?.message || 'User not found')
       return res.status(401).json({ error: 'Unauthorized: Invalid token' })
     }
 
-    console.log(`User verified: ${user.id}`)
     req.user = user
     next()
   } catch (err) {
-    console.error('Token verification catch:', err)
-    return res.status(401).json({ error: 'Unauthorized: Token verification failed' })
+    console.error('[Auth] Internal verification error:', err)
+    return res.status(500).json({ error: 'Internal server error during authentication' })
   }
 }

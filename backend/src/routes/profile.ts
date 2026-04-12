@@ -1,13 +1,16 @@
-import express from 'express';
+import express, { type Response } from 'express';
 import { supabase } from '../lib/supabase.js';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Handle profile setup/update
-router.post('/profile', authMiddleware, async (req: AuthRequest, res: any) => {
+router.post('/profile', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'User not authenticated' });
+
   const { name, role, department, year, avatar_url } = req.body;
-  const userId = req.user.id;
+  const userId = user.id;
 
   const { data, error } = await supabase
     .from('profiles')
@@ -18,17 +21,16 @@ router.post('/profile', authMiddleware, async (req: AuthRequest, res: any) => {
       department,
       year,
       avatar_url,
-      email: req.user.email
+      email: user.email
     })
     .select()
     .single();
 
   if (error) {
-    console.error('Profile upsert error:', error)
+    console.error(`[Profile] Upsert error for user ${userId}:`, error)
     return res.status(500).json({ error: error.message })
   }
   
-  console.log(`Profile updated for user ${userId}`)
   res.json(data);
 });
 

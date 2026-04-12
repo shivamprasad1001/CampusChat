@@ -1,12 +1,15 @@
-import express from 'express';
+import express, { type Response } from 'express';
 import { supabase } from '../lib/supabase.js';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Find or create a DM room between the current user and target user
-router.get('/:targetUserId', authMiddleware, async (req: AuthRequest, res: any) => {
-  const currentUserId = req.user.id;
+router.get('/:targetUserId', authMiddleware, async (req: AuthRequest, res: Response) => {
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'User not authenticated' });
+  
+  const currentUserId = user.id;
   const { targetUserId } = req.params;
 
   if (currentUserId === targetUserId) {
@@ -25,10 +28,13 @@ router.get('/:targetUserId', authMiddleware, async (req: AuthRequest, res: any) 
     .eq('type', 'dm')
     .eq('room_members.user_id', currentUserId);
 
-  if (findError) return res.status(500).json({ error: findError.message });
+  if (findError) {
+    console.error('[DM] Search error:', findError);
+    return res.status(500).json({ error: findError.message });
+  }
 
   // Filter existing rooms to find one where the target user is also a member
-  for (const room of (existingRooms as any[])) {
+  for (const room of (existingRooms || [])) {
     const { data: targetMember } = await supabase
       .from('room_members')
       .select('user_id')
@@ -51,7 +57,10 @@ router.get('/:targetUserId', authMiddleware, async (req: AuthRequest, res: any) 
     .select()
     .single();
 
-  if (createError) return res.status(500).json({ error: createError.message });
+  if (createError) {
+    console.error('[DM] Creation error:', createError);
+    return res.status(500).json({ error: createError.message });
+  }
 
   // Add both members
   await supabase

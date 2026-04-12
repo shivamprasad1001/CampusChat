@@ -1,10 +1,17 @@
-import express from 'express';
+import express, { type Request, type Response, type NextFunction } from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { authMiddleware } from './middleware/auth.js';
 import { setupSocketHandlers } from './socket/handlers.js';
+
+// Routes
+import authRoutes from './routes/profile.js';
+import roomsRoutes from './routes/rooms.js';
+import messagesRoutes from './routes/messages.js';
+import uploadRoutes from './routes/upload.js';
+import dmRoutes from './routes/dm.js';
+import reactionsRoutes from './routes/reactions.js';
 
 dotenv.config();
 
@@ -13,7 +20,6 @@ const httpServer = createServer(app);
 
 const allowedOrigins = [
   process.env.FRONTEND_URL || 'http://localhost:3000',
-  // You can add more origins here, e.g., your staging URL
 ];
 
 const io = new Server(httpServer, {
@@ -31,6 +37,7 @@ const io = new Server(httpServer, {
   }
 });
 
+// Middleware
 app.use(cors({
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     if (!origin) return callback(null, true);
@@ -44,38 +51,32 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Health check
-app.get('/health', (req: express.Request, res: express.Response) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
 // Log requests
-app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.log(`${req.method} ${req.url} (Path: ${req.path})`);
+app.use((req: Request, res: Response, next: NextFunction) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   next();
 });
 
 // Routes
-import authRoutes from './routes/profile.js';
-import roomsRoutes from './routes/rooms.js';
-import messagesRoutes from './routes/messages.js';
-import uploadRoutes from './routes/upload.js';
+app.get('/health', (_req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 app.use('/profile', authRoutes);
 app.use('/rooms', roomsRoutes);
 app.use('/messages', messagesRoutes);
 app.use('/upload', uploadRoutes);
-import dmRoutes from './routes/dm.js';
-
 app.use('/dm', dmRoutes);
-import reactionsRoutes from './routes/reactions.js';
-
 app.use('/reactions', reactionsRoutes);
 
 // Error handling
-app.use((err: any, req: any, res: any, next: any) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({ error: 'Internal Server Error', details: err.message });
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('[Fatal] Unhandled error:', err);
+  res.status(500).json({ 
+    error: 'Internal Server Error', 
+    message: err.message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
 });
 
 // Socket.IO
