@@ -1,0 +1,47 @@
+import express from 'express';
+import { supabase } from '../lib/supabase.js';
+import { authMiddleware } from '../middleware/auth.js';
+const router = express.Router();
+// Add or remove reaction
+router.post('/', authMiddleware, async (req, res) => {
+    const { messageId, emoji } = req.body;
+    const userId = req.user.id;
+    if (!messageId || !emoji) {
+        return res.status(400).json({ error: 'Missing messageId or emoji' });
+    }
+    // Check if reaction already exists
+    const { data: existing } = await supabase
+        .from('reactions')
+        .select('*')
+        .eq('message_id', messageId)
+        .eq('user_id', userId)
+        .eq('emoji', emoji)
+        .single();
+    if (existing) {
+        // Remove if it exists (toggle behavior)
+        const { error } = await supabase
+            .from('reactions')
+            .delete()
+            .eq('id', existing.id);
+        if (error)
+            return res.status(500).json({ error: error.message });
+        return res.json({ status: 'removed' });
+    }
+    else {
+        // Add if it doesn't
+        const { data, error } = await supabase
+            .from('reactions')
+            .insert({
+            message_id: messageId,
+            user_id: userId,
+            emoji
+        })
+            .select()
+            .single();
+        if (error)
+            return res.status(500).json({ error: error.message });
+        return res.json({ status: 'added', reaction: data });
+    }
+});
+export default router;
+//# sourceMappingURL=reactions.js.map

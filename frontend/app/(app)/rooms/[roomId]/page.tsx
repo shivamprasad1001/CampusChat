@@ -16,16 +16,24 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import api from '@/lib/api'
-import { Profile, Room } from '@/types'
+import { Message, Profile, Room } from '@/types'
 import { useAppShell } from '@/components/app-shell/AppShellContext'
 
 export default function RoomPage() {
   const { roomId } = useParams()
   const { user, profile } = useAuth()
-  const { messages, sendMessage, sendTyping, toggleReaction, typingUsers } = useMessages(
-    roomId as string
-  )
+  const { 
+    messages, 
+    sendMessage, 
+    sendTyping, 
+    toggleReaction, 
+    togglePin, 
+    typingUsers, 
+    onlineUserIds 
+  } = useMessages(roomId as string)
+  
   const [room, setRoom] = useState<Room | null>(null)
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const { toggleMobileSidebar, membersPanelOpen, toggleMembersPanel } = useAppShell()
 
   useEffect(() => {
@@ -59,8 +67,12 @@ export default function RoomPage() {
           id: message.sender_id,
           name: message.profiles?.name || 'Unknown user',
           avatar_url: message.profiles?.avatar_url,
-          isOnline: typingUsers.some((typingUser) => typingUser.userId === message.sender_id),
+          isOnline: onlineUserIds.includes(message.sender_id),
         })
+      } else {
+        // Update online status for existing members in the map
+        const existing = membersMap.get(message.sender_id)!
+        existing.isOnline = onlineUserIds.includes(message.sender_id)
       }
     })
 
@@ -71,11 +83,12 @@ export default function RoomPage() {
 
       return left.isOnline ? -1 : 1
     })
-  }, [messages, profile, typingUsers, user])
+  }, [messages, profile, onlineUserIds, user])
 
   const handleSendMessage = (content: string, fileUrl?: string) => {
     if (!user) return
-    sendMessage(content, fileUrl, user.id)
+    sendMessage(content, fileUrl, user.id, replyingTo?.id)
+    setReplyingTo(null)
   }
 
   const handleTyping = () => {
@@ -134,13 +147,20 @@ export default function RoomPage() {
             messages={messages}
             roomName={room.name}
             onToggleReaction={(messageId, emoji) => user && toggleReaction(messageId, emoji, user.id)}
+            onReply={setReplyingTo}
+            onTogglePin={togglePin}
           />
 
           <div className="mx-auto w-full max-w-[960px] px-4">
             <TypingIndicator names={typingUsers.map((entry) => entry.name)} />
           </div>
 
-          <MessageInput onSendMessage={handleSendMessage} onTyping={handleTyping} />
+          <MessageInput 
+            onSendMessage={handleSendMessage} 
+            onTyping={handleTyping} 
+            replyingTo={replyingTo}
+            onCancelReply={() => setReplyingTo(null)}
+          />
         </div>
       </div>
 

@@ -24,6 +24,8 @@ interface MessageItemProps {
   message: Message
   isOwn: boolean
   onToggleReaction: (emoji: string) => void
+  onReply: (message: Message) => void
+  onTogglePin: (messageId: string) => void
   showHeader: boolean
 }
 
@@ -33,6 +35,8 @@ export default function MessageItem({
   message,
   isOwn,
   onToggleReaction,
+  onReply,
+  onTogglePin,
   showHeader,
 }: MessageItemProps) {
   const { user } = useAuth()
@@ -51,11 +55,15 @@ export default function MessageItem({
     <article
       className={cn(
         'group/message relative mx-2 rounded-[14px] px-3 py-2 text-[13px] transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-[rgba(31,36,45,0.72)]',
-        !showHeader && 'pt-1'
+        !showHeader && 'pt-1',
+        isOwn && 'flex-row-reverse'
       )}
       style={{ animation: 'chat-enter 200ms cubic-bezier(0.16, 1, 0.3, 1)' }}
     >
-      <div className="pointer-events-none absolute right-3 top-2 hidden text-[11px] text-[var(--text-muted)] group-hover/message:block md:block md:opacity-0 md:group-hover/message:opacity-100">
+      <div className={cn(
+        'pointer-events-none absolute top-2 hidden text-[11px] text-[var(--text-muted)] group-hover/message:block md:block md:opacity-0 md:group-hover/message:opacity-100',
+        isOwn ? 'left-3' : 'right-3'
+      )}>
         <time
           dateTime={message.created_at}
           aria-label={format(new Date(message.created_at), 'PPpp')}
@@ -64,7 +72,7 @@ export default function MessageItem({
         </time>
       </div>
 
-      <div className="flex gap-3">
+      <div className={cn('flex gap-3', isOwn && 'flex-row-reverse')}>
         <div className="w-8 shrink-0">
           {showHeader ? (
             <Avatar className="h-8 w-8 border border-[var(--border-default)]">
@@ -81,9 +89,9 @@ export default function MessageItem({
           )}
         </div>
 
-        <div className="min-w-0 flex-1">
+        <div className={cn('min-w-0 flex-1', isOwn && 'flex flex-col items-end')}>
           {showHeader && (
-            <div className="mb-1.5 flex items-center gap-2 pr-20">
+            <div className={cn('mb-1.5 flex items-center gap-2', isOwn ? 'flex-row-reverse pr-0 pl-20' : 'pr-20')}>
               <span className="font-semibold text-[var(--text-primary)]">{displayName}</span>
               <time
                 className="text-[11px] text-[var(--text-secondary)]"
@@ -92,16 +100,40 @@ export default function MessageItem({
               >
                 {format(new Date(message.created_at), 'MMM d, p')}
               </time>
+              {message.is_pinned && (
+                <div className="flex items-center gap-1 text-[10px] font-medium text-[var(--accent)]">
+                  <Pin className="h-3 w-3 rotate-45" />
+                  <span>Pinned</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Reply Preview */}
+          {message.parent && (
+            <div className={cn(
+              'mb-1 inline-flex max-w-[400px] items-center gap-2 rounded-[8px] border-l-2 border-[var(--accent)] bg-[rgba(255,255,255,0.03)] py-1.5 pl-3 pr-4 text-[12px] text-[var(--text-secondary)]',
+              isOwn && 'flex-row-reverse border-l-0 border-r-2 text-right'
+            )}>
+              <div className="min-w-0 flex-1">
+                <span className="block text-[11px] font-bold text-[var(--accent)]">
+                  {message.parent.profiles?.name || 'User'}
+                </span>
+                <span className="block truncate opacity-80">{message.parent.content}</span>
+              </div>
             </div>
           )}
 
           <div
             className={cn(
-              'max-w-[min(78ch,100%)] rounded-[12px] border border-transparent px-0 py-0 text-[13px] leading-[1.65] text-[var(--text-primary)]',
+              'max-w-[min(78ch,100%)] rounded-[12px] border border-transparent px-3 py-2 text-[13px] leading-[1.65] text-[var(--text-primary)] shadow-sm',
+              isOwn 
+                ? 'bg-[var(--accent)] bg-opacity-10 border-[var(--accent)] border-opacity-20 text-right' 
+                : 'bg-[var(--bg-elevated)] border-[var(--border-subtle)]',
               message.file_url || containsCodeBlock(message.content || '')
-                ? 'bg-[rgba(255,255,255,0.01)]'
+                ? 'bg-opacity-20'
                 : '',
-              !showHeader && 'pl-0.5'
+              !showHeader && (isOwn ? 'pr-0.5' : 'pl-0.5')
             )}
           >
             {message.content ? (
@@ -134,7 +166,7 @@ export default function MessageItem({
           </div>
 
           {Object.keys(reactionsMap).length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className={cn('mt-2 flex flex-wrap gap-2', isOwn && 'justify-end')}>
               {Object.entries(reactionsMap).map(([emoji, userIds]) => {
                 const hasReacted = !!user && userIds.includes(user.id)
 
@@ -160,17 +192,44 @@ export default function MessageItem({
         </div>
       </div>
 
-      <div className="pointer-events-none absolute right-4 top-0 hidden -translate-y-1/2 opacity-0 transition group-hover/message:pointer-events-auto group-hover/message:opacity-100 md:flex">
+      <div className={cn(
+        'pointer-events-none absolute top-0 hidden -translate-y-1/2 opacity-0 transition group-hover/message:pointer-events-auto group-hover/message:opacity-100 md:flex',
+        isOwn ? 'left-4' : 'right-4'
+      )}>
         <div className="flex items-center gap-0.5 rounded-[10px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-1 shadow-[var(--shadow-md)]">
-          <ToolbarButton ariaLabel="Add reaction">
-            <SmilePlus className="h-4 w-4" strokeWidth={1.6} />
-          </ToolbarButton>
-          <ToolbarButton ariaLabel="Reply to message">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-[8px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                aria-label="Add reaction"
+              >
+                <SmilePlus className="h-4 w-4" strokeWidth={1.6} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align={isOwn ? 'start' : 'end'} className="bg-[var(--bg-elevated)] border-[var(--border-subtle)] min-w-0">
+              <div className="flex gap-1 p-1">
+                {COMMON_EMOJIS.map(emoji => (
+                  <DropdownMenuItem key={emoji} onClick={() => onToggleReaction(emoji)} className="cursor-pointer p-1.5 text-lg hover:bg-[var(--bg-hover)] rounded-md">
+                    {emoji}
+                  </DropdownMenuItem>
+                ))}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <ToolbarButton ariaLabel="Reply to message" onClick={() => onReply(message)}>
             <CornerUpLeft className="h-4 w-4" strokeWidth={1.6} />
           </ToolbarButton>
-          <ToolbarButton ariaLabel="Pin message">
-            <Pin className="h-4 w-4" strokeWidth={1.6} />
+          
+          <ToolbarButton 
+            ariaLabel="Pin message" 
+            onClick={() => onTogglePin(message.id)}
+            className={message.is_pinned ? 'text-[var(--accent)] bg-[var(--accent-glow)]' : ''}
+          >
+            <Pin className={cn("h-4 w-4", message.is_pinned && "rotate-45")} strokeWidth={1.6} />
           </ToolbarButton>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
@@ -182,18 +241,18 @@ export default function MessageItem({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
-              align="end"
+              align={isOwn ? 'start' : 'end'}
               className="min-w-[180px] rounded-[10px] border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-[var(--shadow-lg)]"
             >
-              {COMMON_EMOJIS.map((emoji) => (
-                <DropdownMenuItem
-                  key={emoji}
-                  onClick={() => onToggleReaction(emoji)}
-                  className="cursor-pointer rounded-[8px] text-[13px] hover:bg-[var(--bg-hover)] focus:bg-[var(--bg-hover)]"
-                >
-                  React with {emoji}
-                </DropdownMenuItem>
-              ))}
+              <DropdownMenuItem onClick={() => navigator.clipboard.writeText(message.content || '')} className="cursor-pointer text-[13px]">
+                Copy Text
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onReply(message)} className="cursor-pointer text-[13px]">
+                Reply
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onTogglePin(message.id)} className="cursor-pointer text-[13px]">
+                {message.is_pinned ? 'Unpin Message' : 'Pin Message'}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

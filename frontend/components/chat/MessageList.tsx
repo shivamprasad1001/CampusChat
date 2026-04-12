@@ -10,14 +10,18 @@ import { ArrowDown } from 'lucide-react'
 
 interface MessageListProps {
   messages: Message[]
-  onToggleReaction: (messageId: string, emoji: string) => void
   roomName: string
+  onToggleReaction: (messageId: string, emoji: string) => void
+  onReply: (message: Message) => void
+  onTogglePin: (messageId: string) => void
 }
 
 export default function MessageList({
   messages,
-  onToggleReaction,
   roomName,
+  onToggleReaction,
+  onReply,
+  onTogglePin,
 }: MessageListProps) {
   const { user } = useAuth()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -146,8 +150,10 @@ export default function MessageList({
               <MessageItem
                 message={message}
                 isOwn={message.sender_id === user?.id}
-                onToggleReaction={(emoji) => onToggleReaction(message.id, emoji)}
                 showHeader={showHeader}
+                onToggleReaction={(emoji) => onToggleReaction(message.id, emoji)}
+                onReply={onReply}
+                onTogglePin={onTogglePin}
               />
             </div>
           ))}

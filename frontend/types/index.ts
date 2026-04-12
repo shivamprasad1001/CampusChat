@@ -30,9 +30,17 @@ export interface Message {
   file_url?: string;
   file_type?: string;
   edited: boolean;
+  is_pinned?: boolean;
+  parent_id?: string;
   created_at: string;
   profiles?: Partial<Profile>;
   reactions?: Reaction[];
+  parent?: {
+    id: string;
+    content: string;
+    sender_id: string;
+    profiles?: Partial<Profile>;
+  };
 }
 
 export interface Reaction {

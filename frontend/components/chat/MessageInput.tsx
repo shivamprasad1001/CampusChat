@@ -1,18 +1,23 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Paperclip, Send, SmilePlus } from 'lucide-react'
+import { Paperclip, Send, SmilePlus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import api from '@/lib/api'
+import { Message } from '@/types'
 
 interface MessageInputProps {
   onSendMessage: (content: string, fileUrl?: string) => void
   onTyping: () => void
+  replyingTo?: Message | null
+  onCancelReply?: () => void
 }
 
 export default function MessageInput({
   onSendMessage,
   onTyping,
+  replyingTo,
+  onCancelReply,
 }: MessageInputProps) {
   const [content, setContent] = useState('')
   const [isFocused, setIsFocused] = useState(false)
@@ -93,12 +98,33 @@ export default function MessageInput({
 
       <div
         className={cn(
-          'mx-auto max-w-[960px] rounded-[14px] border bg-[var(--bg-elevated)] shadow-[var(--shadow-md)]',
+          'mx-auto max-w-[960px] rounded-[14px] border bg-[var(--bg-elevated)] shadow-[var(--shadow-md)] overflow-hidden',
           isFocused
             ? 'border-[var(--accent)] shadow-[0_0_0_4px_var(--accent-glow),var(--shadow-md)]'
             : 'border-[var(--border-default)]'
         )}
       >
+        {/* Reply Preview Header */}
+        {replyingTo && (
+          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[rgba(255,255,255,0.03)] px-4 py-2">
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] font-bold text-[var(--accent)]">
+                Replying to {replyingTo.profiles?.name || 'User'}
+              </span>
+              <p className="truncate text-[12px] text-[var(--text-secondary)] opacity-80">
+                {replyingTo.content}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onCancelReply}
+              className="ml-2 flex h-6 w-6 items-center justify-center rounded-full hover:bg-[var(--bg-hover)] text-[var(--text-muted)]"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
         <div className="flex min-h-20 items-end gap-2 px-3 py-3">
           <button
             type="button"

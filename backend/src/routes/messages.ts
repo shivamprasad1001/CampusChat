@@ -13,7 +13,8 @@ router.get('/:roomId', authMiddleware, async (req: AuthRequest, res: any) => {
     .select(`
       *,
       profiles:sender_id(name, avatar_url),
-      reactions(*)
+      reactions(*),
+      parent:parent_id(id, content, sender_id, profiles:sender_id(name))
     `)
     .eq('room_id', roomId)
     .order('created_at', { ascending: true });
