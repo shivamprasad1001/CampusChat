@@ -2,7 +2,8 @@ import type { Request, Response, NextFunction } from 'express'
 import { supabase } from '../lib/supabase.js'
 
 export interface AuthRequest extends Request {
-  user?: any
+  user?: any;
+  file?: any;
 }
 
 export async function authMiddleware(req: AuthRequest, res: Response, next: NextFunction) {

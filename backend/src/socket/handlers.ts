@@ -6,7 +6,7 @@ const socketToUser = new Map<string, { userId: string, roomId: string }>();
 
 export function setupSocketHandlers(io: Server) {
   io.on('connection', (socket: Socket) => {
-    socket.on('join_room', ({ roomId, userId }) => {
+    socket.on('join_room', ({ roomId, userId }: { roomId: string, userId: string }) => {
       socket.join(roomId);
       
       if (userId) {
@@ -23,7 +23,7 @@ export function setupSocketHandlers(io: Server) {
       console.log(`User ${userId || socket.id} joined room: ${roomId}`);
     });
 
-    socket.on('send_message', async ({ roomId, content, fileUrl, userId, parentId }) => {
+    socket.on('send_message', async ({ roomId, content, fileUrl, userId, parentId }: { roomId: string, content: string, fileUrl?: string, userId: string, parentId?: string }) => {
       const { data: message, error } = await supabase
         .from('messages')
         .insert({
@@ -47,7 +47,7 @@ export function setupSocketHandlers(io: Server) {
       }
     });
 
-    socket.on('toggle_pin', async ({ messageId, roomId }) => {
+    socket.on('toggle_pin', async ({ messageId, roomId }: { messageId: string, roomId: string }) => {
       try {
         const { data: current } = await supabase
           .from('messages')
@@ -72,11 +72,11 @@ export function setupSocketHandlers(io: Server) {
       }
     });
 
-    socket.on('typing', ({ roomId, userId, name }) => {
+    socket.on('typing', ({ roomId, userId, name }: { roomId: string, userId: string, name: string }) => {
       socket.to(roomId).emit('user_typing', { userId, name });
     });
 
-    socket.on('toggle_reaction', async ({ messageId, emoji, userId, roomId }) => {
+    socket.on('toggle_reaction', async ({ messageId, emoji, userId, roomId }: { messageId: string, emoji: string, userId: string, roomId: string }) => {
       try {
         const { data: existing } = await supabase
           .from('reactions')

@@ -40,6 +40,10 @@ next-env.d.ts
 dist/
 logs/
 *.log
+backend/src/**/*.js
+backend/src/**/*.d.ts
+backend/src/**/*.js.map
+backend/src/**/*.d.ts.map
 
 
 futurePlans/
