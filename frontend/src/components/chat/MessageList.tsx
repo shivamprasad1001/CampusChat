@@ -131,19 +131,19 @@ export default function MessageList({
   if (messages.length === 0) {
     return (
       <div className="relative flex flex-1 items-center justify-center px-6 py-10">
-        <div className="mx-auto flex max-w-[360px] flex-col items-center text-center">
-          <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-[24px] border border-[var(--border-subtle)] bg-[radial-gradient(circle_at_top,rgba(79,142,247,0.16),transparent_60%),var(--bg-surface)] shadow-[var(--shadow-md)]">
-            <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
+        <div className="mx-auto flex max-w-[340px] flex-col items-center text-center">
+          <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[var(--radius-xl)] border border-[var(--border-subtle)] bg-[radial-gradient(circle_at_top,rgba(91,154,255,0.14),transparent_60%),var(--bg-surface)] shadow-[var(--shadow-md)]">
+            <svg width="48" height="48" viewBox="0 0 52 52" fill="none" aria-hidden="true">
               <rect x="8" y="11" width="36" height="25" rx="10" stroke="var(--accent)" strokeWidth="1.5" opacity="0.88" />
               <path d="M18 20H34M18 26H29" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" />
               <path d="M21 36L18 42L27 36" fill="var(--bg-surface)" stroke="var(--accent)" strokeWidth="1.5" strokeLinejoin="round" />
             </svg>
           </div>
-          <h2 className="font-display text-[22px] font-semibold text-[var(--text-primary)]">
+          <h2 className="font-display text-lg font-bold text-[var(--text-primary)]">
             Welcome to #{roomName}
           </h2>
-          <p className="mt-2 text-[13px] text-[var(--text-secondary)]">
-            This room is quiet for now. Start the thread and set the tone for the conversation.
+          <p className="mt-2 text-[12px] text-[var(--text-secondary)]">
+            Start the conversation and set the tone for the discussion.
           </p>
         </div>
       </div>
@@ -157,7 +157,7 @@ export default function MessageList({
           role="log"
           aria-live="polite"
           aria-relevant="additions text"
-          className="mx-auto flex w-full max-w-[960px] flex-col px-2 py-5 pb-10 md:px-4"
+          className="mx-auto flex w-full max-w-[960px] flex-col px-2 py-4 pb-8 md:px-4"
         >
           {hasMore && (
             <div ref={inViewRef} className="flex justify-center py-4">
@@ -167,8 +167,8 @@ export default function MessageList({
           {items.map(({ message, showHeader, showDateSeparator }) => (
             <div key={message.id}>
               {showDateSeparator && (
-                <div className="sticky top-4 z-10 my-4 flex justify-center">
-                  <span className="rounded-full border border-[var(--border-subtle)] bg-[rgba(19,22,27,0.9)] px-3 py-1 text-[11px] uppercase tracking-[0.08em] text-[var(--text-muted)] backdrop-blur-md">
+                <div className="sticky top-3 z-10 my-4 flex justify-center">
+                  <span className="rounded-full border border-[var(--border-subtle)] glass-panel-heavy px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                     {format(new Date(message.created_at), 'EEEE, MMMM d')}
                   </span>
                 </div>
@@ -193,9 +193,9 @@ export default function MessageList({
           <button
             type="button"
             onClick={scrollToBottom}
-            className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] bg-[rgba(19,22,27,0.92)] px-3 py-2 text-[12px] font-medium text-[var(--text-primary)] shadow-[var(--shadow-md)] backdrop-blur-md hover:bg-[var(--bg-hover)]"
+            className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-[var(--border-default)] glass-panel-heavy px-4 py-2 text-[11px] font-semibold text-[var(--text-primary)] shadow-[var(--shadow-md)] hover:bg-[var(--bg-hover)] transition"
           >
-            <ArrowDown className="h-3.5 w-3.5 text-[var(--accent)]" strokeWidth={1.8} />
+            <ArrowDown className="h-3 w-3 text-[var(--accent)]" strokeWidth={2} />
             New messages
           </button>
         </div>

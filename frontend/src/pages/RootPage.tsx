@@ -2,8 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import api from '@/lib/api'
-import { Button } from '@/components/ui/button'
-import { AlertCircle, RefreshCw } from 'lucide-react'
+import { AlertCircle, Loader2, RefreshCw } from 'lucide-react'
 import { Room } from '@/types'
 import { AxiosError } from 'axios'
 
@@ -65,37 +64,32 @@ export default function RootPage() {
 
   if (authLoading || (user && !error)) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="app-shell flex min-h-[100dvh] flex-col items-center justify-center gap-4">
         <div className="relative">
-          <div className="h-16 w-16 rounded-full border-4 border-indigo-100 dark:border-indigo-900 border-t-indigo-600 animate-spin"></div>
-          <div className="mt-4 text-sm font-medium text-gray-500 dark:text-gray-400 font-sans">Loading CampusChat...</div>
+          <Loader2 className="h-10 w-10 animate-spin text-[var(--accent)]" />
         </div>
+        <p className="text-[13px] font-medium text-[var(--text-secondary)]">Loading CampusChat…</p>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 p-4 font-sans">
-        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center ring-1 ring-black/5">
-          <div className="mx-auto w-14 h-14 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-6">
-            <AlertCircle className="w-8 h-8 text-red-500 dark:text-red-400" />
+      <div className="app-shell flex min-h-[100dvh] items-center justify-center p-4">
+        <div className="w-full max-w-[420px] overflow-hidden rounded-[var(--radius-xl)] border border-[var(--border-default)] bg-[var(--bg-glass-heavy)] p-8 text-center shadow-[var(--shadow-xl)] backdrop-blur-xl">
+          <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-[var(--radius-lg)] bg-[var(--danger)]/10 border border-[var(--danger)]/15">
+            <AlertCircle className="h-7 w-7 text-[var(--danger)]" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Connection Issues</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">{error}</p>
-          <Button 
-            onClick={() => navigateToGeneral()} 
+          <h2 className="font-display text-xl font-bold text-[var(--text-primary)]">Connection Issues</h2>
+          <p className="mt-2 text-[13px] leading-relaxed text-[var(--text-secondary)]">{error}</p>
+          <button
+            onClick={() => navigateToGeneral()}
             disabled={isRetrying}
-            size="lg"
-            className="w-full flex items-center justify-center gap-3 py-6 text-lg transition-all active:scale-95 bg-indigo-600 hover:bg-indigo-700 text-white"
+            className="mt-6 flex h-11 w-full items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-[var(--accent)] font-semibold text-white shadow-[var(--shadow-sm)] transition-all hover:bg-[var(--accent-hover)] active:scale-[0.98] disabled:opacity-60"
           >
-            {isRetrying ? (
-              <RefreshCw className="w-5 h-5 animate-spin" />
-            ) : (
-              <RefreshCw className="w-5 h-5" />
-            )}
-            {isRetrying ? 'Retrying...' : 'Retry Connection'}
-          </Button>
+            <RefreshCw className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
+            {isRetrying ? 'Retrying…' : 'Retry Connection'}
+          </button>
         </div>
       </div>
     )

@@ -92,7 +92,7 @@ export default function MessageInput({
   }
 
   return (
-    <div className="px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-2 md:px-4">
+    <div className="px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-1 md:px-4">
       <input
         type="file"
         hidden
@@ -102,20 +102,21 @@ export default function MessageInput({
 
       <div
         className={cn(
-          'mx-auto max-w-[960px] rounded-[14px] border bg-[var(--bg-elevated)] shadow-[var(--shadow-md)] overflow-hidden',
+          'mx-auto max-w-[960px] rounded-[var(--radius-lg)] border overflow-hidden transition-all duration-200',
+          'bg-[var(--bg-elevated)] shadow-[var(--shadow-md)]',
           isFocused
-            ? 'border-[var(--accent)] shadow-[0_0_0_4px_var(--accent-glow),var(--shadow-md)]'
+            ? 'border-[var(--accent)] shadow-[0_0_0_3px_var(--accent-muted),var(--shadow-md)]'
             : 'border-[var(--border-default)]'
         )}
       >
         {/* Reply Preview Header */}
         {replyingTo && (
-          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[rgba(255,255,255,0.03)] px-4 py-2">
+          <div className="flex items-center justify-between border-b border-[var(--border-subtle)] bg-[rgba(255,255,255,0.02)] px-4 py-2">
             <div className="min-w-0 flex-1">
               <span className="text-[11px] font-bold text-[var(--accent)]">
                 Replying to {replyingTo.profiles?.name || 'User'}
               </span>
-              <p className="truncate text-[12px] text-[var(--text-secondary)] opacity-80">
+              <p className="truncate text-[11px] text-[var(--text-muted)] opacity-80">
                 {replyingTo.content}
               </p>
             </div>
@@ -124,33 +125,30 @@ export default function MessageInput({
               onClick={onCancelReply}
               className="ml-2 flex h-6 w-6 items-center justify-center rounded-full hover:bg-[var(--bg-hover)] text-[var(--text-muted)]"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5" />
             </button>
           </div>
         )}
 
-        <div className="flex min-h-20 items-end gap-2 px-3 py-3">
+        <div className="flex min-h-16 items-end gap-1.5 px-3 py-2.5 md:gap-2">
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
-            className="mb-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="mb-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-60"
             aria-label="Attach file"
           >
-            <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.7} />
+            <Paperclip className="h-4 w-4" strokeWidth={1.8} />
           </button>
 
-          <div className="flex-1">
-            <label className="mb-1 block text-[11px] font-medium text-[var(--text-muted)]">
-              Message
-            </label>
+          <div className="flex-1 min-w-0">
             <div
               ref={editorRef}
               contentEditable
               role="textbox"
               aria-multiline="true"
-              data-placeholder="Message the room, use @mentions, or press / for commands"
-              className="relative min-h-[44px] max-h-40 overflow-y-auto rounded-[10px] px-1 py-1 text-[15px] leading-[1.6] text-[var(--text-primary)] outline-none before:pointer-events-none before:absolute before:text-[var(--text-muted)] empty:before:content-[attr(data-placeholder)]"
+              data-placeholder="Message the room…"
+              className="relative min-h-[36px] max-h-36 overflow-y-auto rounded-[var(--radius-sm)] px-1 py-1 text-[var(--msg-font-size)] leading-[1.6] text-[var(--text-primary)] outline-none before:pointer-events-none before:absolute before:text-[var(--text-muted)] empty:before:content-[attr(data-placeholder)]"
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               onInput={(event) => {
@@ -170,10 +168,10 @@ export default function MessageInput({
 
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="mb-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+              className="mb-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
               aria-label="Add emoji"
             >
-              <SmilePlus className="h-[18px] w-[18px]" strokeWidth={1.7} />
+              <SmilePlus className="h-4 w-4" strokeWidth={1.8} />
             </DropdownMenuTrigger>
             <DropdownMenuContent side="top" align="end" className="w-auto p-0 border-none bg-transparent shadow-none min-w-[352px]" sideOffset={8}>
               <Picker
@@ -194,20 +192,20 @@ export default function MessageInput({
             disabled={!content.trim() || isUploading}
             onClick={() => submit()}
             className={cn(
-              'mb-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] shadow-[var(--shadow-sm)]',
+              'mb-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] shadow-[var(--shadow-xs)] transition-all',
               content.trim()
-                ? 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] active:scale-[0.96]'
+                ? 'bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] active:scale-[0.94]'
                 : 'bg-[var(--bg-hover)] text-[var(--text-muted)]'
             )}
             aria-label="Send message"
           >
-            <Send className="h-4 w-4" strokeWidth={1.8} />
+            <Send className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
         </div>
 
-        <div className="flex items-center justify-between border-t border-[var(--border-subtle)] px-3 py-2 text-[11px] text-[var(--text-muted)]">
-          <span>Enter to send • Shift+Enter for a new line</span>
-          <span>{isUploading ? 'Uploading attachment…' : `${content.length} characters`}</span>
+        <div className="flex items-center justify-between border-t border-[var(--border-subtle)] px-3 py-1.5 text-[10px] text-[var(--text-muted)]">
+          <span>Enter to send • Shift+Enter for new line</span>
+          <span>{isUploading ? 'Uploading…' : `${content.length} chars`}</span>
         </div>
       </div>
     </div>

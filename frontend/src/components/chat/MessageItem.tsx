@@ -61,14 +61,15 @@ export default function MessageItem({
   return (
     <article
       className={cn(
-        'group/message relative mx-2 rounded-[14px] px-3 py-2 text-[13px] transition-[background-color,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] hover:bg-[rgba(31,36,45,0.72)]',
-        !showHeader && 'pt-1',
+        'group/message relative mx-1 rounded-[var(--radius-md)] px-3 py-[var(--density-padding)] text-[var(--msg-font-size)] transition-colors duration-150 hover:bg-[var(--bg-hover)]/50',
+        !showHeader && 'pt-[calc(var(--density-padding)/2)]',
         isOwn && 'flex-row-reverse'
       )}
-      style={{ animation: 'chat-enter 200ms cubic-bezier(0.16, 1, 0.3, 1)' }}
+      style={{ animation: 'chat-enter 200ms var(--ease-spring)' }}
     >
+      {/* Hover timestamp */}
       <div className={cn(
-        'pointer-events-none absolute top-2 hidden text-[11px] text-[var(--text-muted)] group-hover/message:block md:block md:opacity-0 md:group-hover/message:opacity-100',
+        'pointer-events-none absolute top-2 hidden text-[10px] text-[var(--text-muted)] group-hover/message:block md:block md:opacity-0 md:group-hover/message:opacity-100 transition-opacity',
         isOwn ? 'left-3' : 'right-3'
       )}>
         <time
@@ -79,13 +80,13 @@ export default function MessageItem({
         </time>
       </div>
 
-      <div className={cn('flex gap-3', isOwn && 'flex-row-reverse')}>
+      <div className={cn('flex gap-[var(--density-gap)]', isOwn && 'flex-row-reverse')}>
         <div className="w-8 shrink-0">
           {showHeader ? (
-            <Avatar className="h-8 w-8 border border-[var(--border-default)]">
+            <Avatar className="h-8 w-8 border border-[var(--border-default)] shadow-[var(--shadow-xs)]">
               <AvatarImage src={profile?.avatar_url} />
               <AvatarFallback
-                className="text-[11px] font-semibold text-white"
+                className="text-[10px] font-bold text-white"
                 style={{ background: createAvatarGradient(displayName) }}
               >
                 {getInitials(displayName)}
@@ -98,17 +99,17 @@ export default function MessageItem({
 
         <div className={cn('min-w-0 flex-1', isOwn && 'flex flex-col items-end')}>
           {showHeader && (
-            <div className={cn('mb-1.5 flex items-center gap-2', isOwn ? 'flex-row-reverse pr-0 pl-20' : 'pr-20')}>
-              <span className="font-semibold text-[var(--text-primary)]">{displayName}</span>
-              <time className="text-opacity-70">
+            <div className={cn('mb-1 flex items-center gap-2', isOwn ? 'flex-row-reverse pr-0 pl-16' : 'pr-16')}>
+              <span className="text-[12px] font-bold text-[var(--text-primary)]">{displayName}</span>
+              <time className="text-[10px] text-[var(--text-muted)]">
                 {format(new Date(message.created_at), 'MMM d, p')}
               </time>
               {message.edited && (
-                <span className="text-opacity-60 italic">(edited)</span>
+                <span className="text-[10px] text-[var(--text-muted)] italic">(edited)</span>
               )}
               {message.is_pinned && (
-                <div className="flex items-center gap-1 text-[10px] font-medium text-[var(--accent)] ml-1">
-                  <Pin className="h-3 w-3 rotate-45" />
+                <div className="flex items-center gap-0.5 text-[10px] font-semibold text-[var(--accent)]">
+                  <Pin className="h-2.5 w-2.5 rotate-45" />
                   <span>Pinned</span>
                 </div>
               )}
@@ -118,11 +119,11 @@ export default function MessageItem({
           {/* Reply Preview */}
           {message.parent && (
             <div className={cn(
-              'mb-1 inline-flex max-w-[400px] items-center gap-2 rounded-[8px] border-l-2 border-[var(--accent)] bg-[rgba(255,255,255,0.03)] py-1.5 pl-3 pr-4 text-[12px] text-[var(--text-secondary)]',
+              'mb-1 inline-flex max-w-[380px] items-center gap-2 rounded-[var(--radius-sm)] border-l-2 border-[var(--accent)] bg-[rgba(255,255,255,0.02)] py-1.5 pl-3 pr-4 text-[11px] text-[var(--text-secondary)]',
               isOwn && 'flex-row-reverse border-l-0 border-r-2 text-right'
             )}>
               <div className="min-w-0 flex-1">
-                <span className="block text-[11px] font-bold text-[var(--accent)]">
+                <span className="block text-[10px] font-bold text-[var(--accent)]">
                   {message.parent.profiles?.name || 'User'}
                 </span>
                 <span className="block truncate opacity-80">{message.parent.content}</span>
@@ -132,9 +133,9 @@ export default function MessageItem({
 
           <div
             className={cn(
-              'max-w-[min(78ch,100%)] rounded-[12px] border border-transparent px-3 py-2 text-[13px] leading-[1.65] text-[var(--text-primary)] shadow-sm',
+              'max-w-[min(78ch,100%)] rounded-[var(--radius-md)] border border-transparent px-3 py-2 text-[var(--msg-font-size)] leading-[1.65] text-[var(--text-primary)]',
               isOwn 
-                ? 'bg-[var(--accent)] bg-opacity-10 border-[var(--accent)] border-opacity-20 text-right' 
+                ? 'bg-[var(--accent)] bg-opacity-10 border-[var(--accent)]/15 text-right' 
                 : 'bg-[var(--bg-elevated)] border-[var(--border-subtle)]',
               message.file_url || containsCodeBlock(message.content || '')
                 ? 'bg-opacity-20'
@@ -143,20 +144,20 @@ export default function MessageItem({
             )}
           >
             {isEditing ? (
-              <div className="flex flex-col gap-2 min-w-[250px] text-left">
+              <div className="flex flex-col gap-2 min-w-[200px] text-left">
                 <textarea
-                  className="w-full resize-none rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1.5 text-[13px] text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+                  className="w-full resize-none rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-[13px] text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-muted)]"
                   value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditContent(e.target.value)}
                   autoFocus
                   rows={2}
                 />
                 <div className="flex justify-end gap-2">
-                  <button onClick={() => setIsEditing(false)} className="text-[11px] text-[var(--text-secondary)] hover:text-white transition">Cancel</button>
+                  <button onClick={() => setIsEditing(false)} className="text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition font-medium">Cancel</button>
                   <button onClick={() => {
                     onEditMessage(message.id, editContent);
                     setIsEditing(false);
-                  }} className="text-[11px] bg-[var(--accent)] px-3 py-1 rounded text-white font-medium hover:bg-opacity-90 transition">Save</button>
+                  }} className="text-[11px] bg-[var(--accent)] px-3 py-1 rounded-[var(--radius-sm)] text-white font-semibold hover:bg-[var(--accent-hover)] transition">Save</button>
                 </div>
               </div>
             ) : message.content ? (
@@ -166,22 +167,22 @@ export default function MessageItem({
             )}
 
             {message.file_url && (
-              <div className="mt-3 overflow-hidden rounded-[12px] border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+              <div className="mt-2 overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
                 {message.file_type?.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|svg)($|\?)/i.test(message.file_url) ? (
                   <img
                     src={message.file_url}
                     alt="Attachment preview"
-                    className="max-h-[340px] w-full object-cover"
+                    className="max-h-[300px] w-full object-cover"
                   />
                 ) : (
                   <a
                     href={message.file_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center justify-between gap-3 px-4 py-3 text-[13px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
+                    className="flex items-center justify-between gap-3 px-4 py-3 text-[12px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
                   >
                     <span className="truncate">Download attachment</span>
-                    <span className="text-[11px] text-[var(--accent)]">Open</span>
+                    <span className="text-[11px] font-semibold text-[var(--accent)]">Open</span>
                   </a>
                 )}
               </div>
@@ -189,7 +190,7 @@ export default function MessageItem({
           </div>
 
           {Object.keys(reactionsMap).length > 0 && (
-            <div className={cn('mt-2 flex flex-wrap gap-2', isOwn && 'justify-end')}>
+            <div className={cn('mt-1.5 flex flex-wrap gap-1.5', isOwn && 'justify-end')}>
               {Object.entries(reactionsMap).map(([emoji, userIds]) => {
                 const hasReacted = !!user && userIds.includes(user.id)
 
@@ -198,15 +199,15 @@ export default function MessageItem({
                     key={emoji}
                     onClick={() => onToggleReaction(emoji)}
                     className={cn(
-                      'inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] text-[var(--text-secondary)] shadow-[var(--shadow-sm)] transition hover:scale-[1.05] hover:bg-[var(--bg-hover)]',
+                      'inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] font-medium shadow-[var(--shadow-xs)] transition hover:scale-[1.05]',
                       hasReacted
-                        ? 'border-[var(--accent)] bg-[var(--accent-glow)] text-[var(--text-primary)]'
-                        : 'border-[var(--border-default)] bg-[var(--bg-elevated)]'
+                        ? 'border-[var(--accent)] bg-[var(--accent-muted)] text-[var(--text-primary)]'
+                        : 'border-[var(--border-default)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
                     )}
-                    style={{ animation: 'reaction-pop 180ms cubic-bezier(0.16, 1, 0.3, 1)' }}
+                    style={{ animation: 'reaction-pop 180ms var(--ease-spring)' }}
                   >
                     <span>{emoji}</span>
-                    <span className="font-semibold">{userIds.length}</span>
+                    <span className="font-bold">{userIds.length}</span>
                   </button>
                 )
               })}
@@ -215,17 +216,18 @@ export default function MessageItem({
         </div>
       </div>
 
+      {/* Action toolbar */}
       <div className={cn(
         'pointer-events-none absolute top-0 hidden -translate-y-1/2 opacity-0 transition group-hover/message:pointer-events-auto group-hover/message:opacity-100 md:flex',
         isOwn ? 'left-4' : 'right-4'
       )}>
-        <div className="flex items-center gap-0.5 rounded-[10px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-1 shadow-[var(--shadow-md)]">
+        <div className="flex items-center gap-0.5 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-0.5 shadow-[var(--shadow-md)]">
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="inline-flex h-7 w-7 items-center justify-center rounded-[8px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
               aria-label="Add reaction"
             >
-              <SmilePlus className="h-4 w-4" strokeWidth={1.6} />
+              <SmilePlus className="h-3.5 w-3.5" strokeWidth={1.7} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align={isOwn ? 'start' : 'end'} className="w-auto bg-transparent border-none p-0 shadow-none min-w-[352px]">
               <Picker
@@ -237,43 +239,43 @@ export default function MessageItem({
           </DropdownMenu>
 
           <ToolbarButton ariaLabel="Reply to message" onClick={() => onReply(message)}>
-            <CornerUpLeft className="h-4 w-4" strokeWidth={1.6} />
+            <CornerUpLeft className="h-3.5 w-3.5" strokeWidth={1.7} />
           </ToolbarButton>
           
           <ToolbarButton 
             ariaLabel="Pin message" 
             onClick={() => onTogglePin(message.id)}
-            className={message.is_pinned ? 'text-[var(--accent)] bg-[var(--accent-glow)]' : ''}
+            className={message.is_pinned ? 'text-[var(--accent)] bg-[var(--accent-muted)]' : ''}
           >
-            <Pin className={cn("h-4 w-4", message.is_pinned && "rotate-45")} strokeWidth={1.6} />
+            <Pin className={cn("h-3.5 w-3.5", message.is_pinned && "rotate-45")} strokeWidth={1.7} />
           </ToolbarButton>
 
           <DropdownMenu>
             <DropdownMenuTrigger
-              className="inline-flex h-7 w-7 items-center justify-center rounded-[8px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
               aria-label="More actions"
             >
-              <MoreHorizontal className="h-4 w-4" strokeWidth={1.6} />
+              <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.7} />
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align={isOwn ? 'start' : 'end'}
-              className="min-w-[180px] rounded-[10px] border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-[var(--shadow-lg)]"
+              className="min-w-[170px] rounded-[var(--radius-md)] border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-[var(--shadow-lg)]"
             >
-              <DropdownMenuItem onClick={() => navigator.clipboard.writeText(message.content || '')} className="cursor-pointer text-[13px]">
+              <DropdownMenuItem onClick={() => navigator.clipboard.writeText(message.content || '')} className="cursor-pointer text-[12px]">
                 Copy Text
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onReply(message)} className="cursor-pointer text-[13px]">
+              <DropdownMenuItem onClick={() => onReply(message)} className="cursor-pointer text-[12px]">
                 Reply
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onTogglePin(message.id)} className="cursor-pointer text-[13px]">
+              <DropdownMenuItem onClick={() => onTogglePin(message.id)} className="cursor-pointer text-[12px]">
                 {message.is_pinned ? 'Unpin Message' : 'Pin Message'}
               </DropdownMenuItem>
               {isOwn && (
                 <>
-                  <DropdownMenuItem onClick={() => setIsEditing(true)} className="cursor-pointer text-[13px]">
+                  <DropdownMenuItem onClick={() => setIsEditing(true)} className="cursor-pointer text-[12px]">
                     Edit Message
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onDeleteMessage(message.id)} className="cursor-pointer text-[13px] text-red-500 focus:text-red-400">
+                  <DropdownMenuItem onClick={() => onDeleteMessage(message.id)} className="cursor-pointer text-[12px] text-red-400 focus:text-red-300">
                     Delete Message
                   </DropdownMenuItem>
                 </>
@@ -281,6 +283,38 @@ export default function MessageItem({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      </div>
+
+      {/* Mobile: Long-press / tap MoreHorizontal button */}
+      <div className={cn(
+        'absolute top-1 md:hidden',
+        isOwn ? 'left-2' : 'right-2'
+      )}>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] text-[var(--text-muted)] opacity-0 group-hover/message:opacity-100 active:opacity-100"
+            aria-label="Message actions"
+          >
+            <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.8} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align={isOwn ? 'start' : 'end'}
+            className="min-w-[170px] rounded-[var(--radius-md)] border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-[var(--shadow-lg)]"
+          >
+            <DropdownMenuItem onClick={() => onToggleReaction('👍')} className="cursor-pointer text-[12px]">👍 React</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onReply(message)} className="cursor-pointer text-[12px]">Reply</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(message.content || '')} className="cursor-pointer text-[12px]">Copy Text</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onTogglePin(message.id)} className="cursor-pointer text-[12px]">
+              {message.is_pinned ? 'Unpin' : 'Pin'}
+            </DropdownMenuItem>
+            {isOwn && (
+              <>
+                <DropdownMenuItem onClick={() => setIsEditing(true)} className="cursor-pointer text-[12px]">Edit</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDeleteMessage(message.id)} className="cursor-pointer text-[12px] text-red-400">Delete</DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </article>
   )
@@ -303,7 +337,7 @@ function ToolbarButton({
       aria-label={ariaLabel}
       onClick={onClick}
       className={cn(
-        "inline-flex h-7 w-7 items-center justify-center rounded-[8px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]",
+        "inline-flex h-7 w-7 items-center justify-center rounded-[6px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]",
         className
       )}
     >
@@ -327,19 +361,19 @@ function MessageContent({ content }: { content: string }) {
             
             if (!inline) {
               return (
-                <div className="overflow-hidden rounded-[12px] border border-[var(--border-subtle)] bg-[var(--bg-surface)] my-3 not-prose">
-                  <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-2 text-[11px] text-[var(--text-secondary)] bg-[rgba(0,0,0,0.2)]">
+                <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface)] my-3 not-prose">
+                  <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-1.5 text-[10px] font-semibold text-[var(--text-muted)] bg-[rgba(0,0,0,0.2)]">
                     <span>{language}</span>
                     <button
                       type="button"
                       onClick={() => navigator.clipboard.writeText(String(children).replace(/\n$/, ''))}
-                      className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1 text-[11px] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                      className="inline-flex items-center gap-1 rounded-[6px] px-2 py-0.5 text-[10px] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
                     >
-                      <Copy className="h-3.5 w-3.5" strokeWidth={1.7} />
+                      <Copy className="h-3 w-3" strokeWidth={1.8} />
                       Copy
                     </button>
                   </div>
-                  <pre className="overflow-x-auto px-4 py-4 text-[13px] leading-6 text-[var(--text-primary)] m-0 bg-transparent">
+                  <pre className="overflow-x-auto px-4 py-3 text-[12px] leading-6 text-[var(--text-primary)] m-0 bg-transparent">
                     <code className={className} {...props}>
                       {children}
                     </code>
@@ -348,7 +382,7 @@ function MessageContent({ content }: { content: string }) {
               )
             }
             return (
-              <code className="rounded-[4px] bg-[var(--bg-elevated)] border border-[var(--border-subtle)] px-1.5 py-0.5 font-mono text-[11.5px] text-[var(--text-primary)]" {...props}>
+              <code className="rounded-[4px] bg-[var(--bg-elevated)] border border-[var(--border-subtle)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--text-primary)]" {...props}>
                 {children}
               </code>
             )
@@ -386,5 +420,5 @@ function createAvatarGradient(name: string) {
   }
 
   const hue = Math.abs(hash) % 360
-  return `linear-gradient(180deg, hsl(${hue} 70% 58%), hsl(${(hue + 32) % 360} 56% 42%))`
+  return `linear-gradient(135deg, hsl(${hue} 70% 58%), hsl(${(hue + 32) % 360} 56% 42%))`
 }

@@ -7,7 +7,6 @@ import RoomMembersPanel from '@/components/chat/RoomMembersPanel'
 import {
   Hash,
   Menu,
-  PanelRight,
   Pin,
   Search,
   Users,
@@ -109,7 +108,6 @@ export default function RoomPage() {
     formData.append('file', file)
 
     try {
-      // Could show a toast or a global uploading state here
       const { data } = await api.post('/upload', formData)
       handleSendMessage('', data.url)
     } catch (error) {
@@ -128,55 +126,61 @@ export default function RoomPage() {
   return (
     <div {...getRootProps()} className="flex min-h-0 flex-1 bg-transparent relative">
       <input {...getInputProps()} />
+      
+      {/* Drag overlay */}
       {isDragActive && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-[rgba(13,15,18,0.85)] border-2 border-dashed border-[var(--accent)] backdrop-blur-sm m-2 rounded-2xl">
+        <div className="absolute inset-0 z-50 flex items-center justify-center glass-panel-heavy m-3 rounded-[var(--radius-xl)] border-2 border-dashed border-[var(--accent)]">
           <div className="text-center space-y-4">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--accent)] bg-opacity-20">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[var(--radius-lg)] bg-[var(--accent-muted)] shadow-[var(--shadow-glow)]">
               <Plus className="h-8 w-8 text-[var(--accent)]" />
             </div>
-            <h3 className="text-xl font-bold text-white">Drop file to share in #{room.name}</h3>
-            <p className="text-[var(--text-secondary)]">The file will be uploaded and sent immediately</p>
+            <h3 className="text-lg font-bold text-[var(--text-primary)]">Drop file to share in #{room.name}</h3>
+            <p className="text-[13px] text-[var(--text-secondary)]">The file will be uploaded and sent</p>
           </div>
         </div>
       )}
+
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-[52px] items-center justify-between border-b border-[var(--border-subtle)] bg-[rgba(13,15,18,0.82)] px-3 backdrop-blur-xl md:px-4">
+        {/* Header */}
+        <header className="flex h-[52px] items-center justify-between border-b border-[var(--border-subtle)] glass-panel-heavy px-3 md:px-4">
           <div className="flex min-w-0 items-center gap-2 md:gap-3">
+            {/* Mobile menu button */}
             <button
               type="button"
               onClick={toggleMobileSidebar}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] md:hidden"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] md:hidden"
               aria-label="Open sidebar"
             >
-              <Menu className="h-[18px] w-[18px]" strokeWidth={1.7} />
+              <Menu className="h-4 w-4" strokeWidth={1.8} />
             </button>
 
-            <div className="flex h-9 w-9 items-center justify-center rounded-[12px] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--accent)]">
-              <Hash className="h-[18px] w-[18px]" strokeWidth={1.7} />
+            <div className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--accent)]">
+              <Hash className="h-4 w-4" strokeWidth={1.8} />
             </div>
 
             <div className="min-w-0">
-              <h1 className="truncate font-display text-[21px] font-semibold tracking-[-0.03em] text-[var(--text-primary)] md:text-[24px]">
-                #{room.name}
+              <h1 className="truncate font-display text-[15px] font-bold tracking-tight text-[var(--text-primary)]">
+                {room.name}
               </h1>
-              <p className="truncate text-[11px] text-[var(--text-secondary)]">
-                {room.description || 'Focused discussion space for the team.'}
+              <p className="hidden truncate text-[11px] text-[var(--text-muted)] sm:block">
+                {room.description || 'Focused discussion space'}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1">
-            <HeaderIconButton label="Search" onClick={focusSearch}>
-              <Search className="h-4 w-4" strokeWidth={1.6} />
+          <div className="flex items-center gap-0.5">
+            <HeaderIconButton label="Search" onClick={focusSearch} className="hidden sm:flex">
+              <Search className="h-3.5 w-3.5" strokeWidth={1.7} />
             </HeaderIconButton>
-            <HeaderIconButton label="Members" onClick={toggleMembersPanel}>
-              <Users className="h-4 w-4" strokeWidth={1.6} />
+            <HeaderIconButton label="Pinned messages" className="hidden sm:flex">
+              <Pin className="h-3.5 w-3.5" strokeWidth={1.7} />
             </HeaderIconButton>
-            <HeaderIconButton label="Pinned messages">
-              <Pin className="h-4 w-4" strokeWidth={1.6} />
-            </HeaderIconButton>
-            <HeaderIconButton label="Toggle details" className="xl:hidden" onClick={toggleMembersPanel}>
-              <PanelRight className="h-4 w-4" strokeWidth={1.6} />
+            <HeaderIconButton
+              label="Members"
+              onClick={toggleMembersPanel}
+              className={membersPanelOpen ? 'bg-[var(--accent-muted)] text-[var(--accent)]' : ''}
+            >
+              <Users className="h-3.5 w-3.5" strokeWidth={1.7} />
             </HeaderIconButton>
           </div>
         </header>
@@ -228,7 +232,7 @@ function HeaderIconButton({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex h-9 w-9 items-center justify-center rounded-[10px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] ${className || ''}`}
+      className={`inline-flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-secondary)] transition hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] ${className || ''}`}
       aria-label={label}
     >
       {children}
@@ -238,13 +242,13 @@ function HeaderIconButton({
 
 function TypingIndicator({ names }: { names: string[] }) {
   if (names.length === 0) {
-    return <div className="h-7" aria-hidden="true" />
+    return <div className="h-6" aria-hidden="true" />
   }
 
   const label = `${names.join(', ')} ${names.length === 1 ? 'is' : 'are'} typing...`
 
   return (
-    <div className="flex h-7 items-center gap-2 px-1 text-[12px] italic text-[var(--text-muted)]">
+    <div className="flex h-6 items-center gap-2 px-1 text-[11px] italic text-[var(--text-muted)]">
       <div className="flex items-center gap-1" aria-hidden="true">
         <span
           className="h-1.5 w-1.5 rounded-full bg-[var(--text-secondary)]"
