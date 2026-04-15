@@ -8,6 +8,9 @@ interface AppShellContextValue {
   setMembersPanelOpen: (open: boolean) => void
   toggleMobileSidebar: () => void
   toggleMembersPanel: () => void
+  searchQuery: string
+  setSearchQuery: (query: string) => void
+  focusSearch: () => void
 }
 
 const AppShellContext = createContext<AppShellContextValue | null>(null)
@@ -15,6 +18,14 @@ const AppShellContext = createContext<AppShellContextValue | null>(null)
 export function AppShellProvider({ children }: { children: React.ReactNode }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [membersPanelOpen, setMembersPanelOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const focusSearch = () => {
+    const input = document.getElementById('room-search-input') as HTMLInputElement
+    if (input) {
+      input.focus()
+    }
+  }
 
   const value = useMemo(
     () => ({
@@ -24,8 +35,11 @@ export function AppShellProvider({ children }: { children: React.ReactNode }) {
       setMembersPanelOpen,
       toggleMobileSidebar: () => setMobileSidebarOpen((open) => !open),
       toggleMembersPanel: () => setMembersPanelOpen((open) => !open),
+      searchQuery,
+      setSearchQuery,
+      focusSearch,
     }),
-    [membersPanelOpen, mobileSidebarOpen]
+    [membersPanelOpen, mobileSidebarOpen, searchQuery]
   )
 
   return <AppShellContext.Provider value={value}>{children}</AppShellContext.Provider>

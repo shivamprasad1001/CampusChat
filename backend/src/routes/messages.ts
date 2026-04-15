@@ -12,7 +12,10 @@ router.get('/:roomId', authMiddleware, async (req: AuthRequest, res: Response) =
     return res.status(400).json({ error: 'Room ID is required' });
   }
 
-  const { data, error } = await supabase
+  const limit = parseInt(req.query.limit as string) || 50;
+  const before = req.query.before as string;
+
+  let query = supabase
     .from('messages')
     .select(`
       *,
@@ -21,11 +24,22 @@ router.get('/:roomId', authMiddleware, async (req: AuthRequest, res: Response) =
       parent:parent_id(id, content, sender_id, profiles:sender_id(name))
     `)
     .eq('room_id', roomId)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (before) {
+    query = query.lt('created_at', before);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error(`[Messages] Error fetching history for room ${roomId}:`, error);
     return res.status(500).json({ error: error.message });
+  }
+
+  if (data) {
+    data.reverse(); // Send chronologically to frontend
   }
 
   res.json(data);

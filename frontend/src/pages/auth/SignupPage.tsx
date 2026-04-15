@@ -58,7 +58,7 @@ export default function SignupPage() {
                 type="text"
                 placeholder="Full Name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
                 required
                 className="bg-white dark:bg-gray-900"
               />
@@ -68,7 +68,7 @@ export default function SignupPage() {
                 type="email"
                 placeholder="Email address"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 required
                 className="bg-white dark:bg-gray-900"
               />
@@ -78,7 +78,7 @@ export default function SignupPage() {
                 type="password"
                 placeholder="Password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                 required
                 className="bg-white dark:bg-gray-900"
               />

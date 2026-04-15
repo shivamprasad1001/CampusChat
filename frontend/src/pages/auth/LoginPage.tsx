@@ -51,7 +51,7 @@ export default function LoginPage() {
                 type="email"
                 placeholder="Email address"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
                 required
                 className="bg-white dark:bg-gray-900"
               />
@@ -61,7 +61,7 @@ export default function LoginPage() {
                 type="password"
                 placeholder="Password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
                 required
                 className="bg-white dark:bg-gray-900"
               />

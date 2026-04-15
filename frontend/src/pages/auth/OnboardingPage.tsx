@@ -50,7 +50,7 @@ export default function OnboardingPage() {
               <label className="text-sm font-medium">Full Name</label>
               <Input
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
                 required
               />
             </div>
@@ -59,7 +59,7 @@ export default function OnboardingPage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Role</label>
                 <Select 
-                  onValueChange={(v) => setFormData({ ...formData, role: v })}
+                  onValueChange={(v: string) => setFormData({ ...formData, role: v })}
                   defaultValue={formData.role}
                 >
                   <SelectTrigger>
@@ -77,7 +77,7 @@ export default function OnboardingPage() {
                   type="number"
                   placeholder="e.g. 2024"
                   value={formData.year}
-                  onChange={(e) => setFormData({ ...formData, year: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, year: e.target.value })}
                   required
                 />
               </div>
@@ -88,7 +88,7 @@ export default function OnboardingPage() {
               <Input
                 placeholder="e.g. Computer Science"
                 value={formData.department}
-                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, department: e.target.value })}
                 required
               />
             </div>

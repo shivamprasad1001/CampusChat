@@ -11,8 +11,10 @@ import {
   Pin,
   Search,
   Users,
+  Plus,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useDropzone } from 'react-dropzone'
 import api from '@/lib/api'
 import { Message, Profile, Room } from '@/types'
 import { useAppShell } from '@/components/app-shell/AppShellContext'
@@ -26,13 +28,18 @@ export default function RoomPage() {
     sendTyping, 
     toggleReaction, 
     togglePin, 
+    editMessage,
+    deleteMessage,
+    fetchMoreMessages,
+    hasMore,
+    isLoadingMore,
     typingUsers, 
     onlineUserIds 
   } = useMessages(roomId as string)
   
   const [room, setRoom] = useState<Room | null>(null)
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
-  const { toggleMobileSidebar, membersPanelOpen, toggleMembersPanel } = useAppShell()
+  const { toggleMobileSidebar, membersPanelOpen, toggleMembersPanel, focusSearch } = useAppShell()
 
   useEffect(() => {
     const fetchRoomDetails = async () => {
@@ -59,7 +66,7 @@ export default function RoomPage() {
       })
     }
 
-    messages.forEach((message) => {
+    messages.forEach((message: Message) => {
       if (!membersMap.has(message.sender_id)) {
         membersMap.set(message.sender_id, {
           id: message.sender_id,
@@ -94,10 +101,44 @@ export default function RoomPage() {
     sendTyping(user.id, profile.name)
   }
 
+  const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    const file = acceptedFiles[0]
+    if (!file || !user) return
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      // Could show a toast or a global uploading state here
+      const { data } = await api.post('/upload', formData)
+      handleSendMessage('', data.url)
+    } catch (error) {
+      console.error('Drop upload failed', error)
+    }
+  }, [user, handleSendMessage])
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
+    onDrop,
+    noClick: true,
+    noKeyboard: true 
+  })
+
   if (!room) return null
 
   return (
-    <div className="flex min-h-0 flex-1 bg-transparent">
+    <div {...getRootProps()} className="flex min-h-0 flex-1 bg-transparent relative">
+      <input {...getInputProps()} />
+      {isDragActive && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-[rgba(13,15,18,0.85)] border-2 border-dashed border-[var(--accent)] backdrop-blur-sm m-2 rounded-2xl">
+          <div className="text-center space-y-4">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--accent)] bg-opacity-20">
+              <Plus className="h-8 w-8 text-[var(--accent)]" />
+            </div>
+            <h3 className="text-xl font-bold text-white">Drop file to share in #{room.name}</h3>
+            <p className="text-[var(--text-secondary)]">The file will be uploaded and sent immediately</p>
+          </div>
+        </div>
+      )}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex h-[52px] items-center justify-between border-b border-[var(--border-subtle)] bg-[rgba(13,15,18,0.82)] px-3 backdrop-blur-xl md:px-4">
           <div className="flex min-w-0 items-center gap-2 md:gap-3">
@@ -125,7 +166,7 @@ export default function RoomPage() {
           </div>
 
           <div className="flex items-center gap-1">
-            <HeaderIconButton label="Search">
+            <HeaderIconButton label="Search" onClick={focusSearch}>
               <Search className="h-4 w-4" strokeWidth={1.6} />
             </HeaderIconButton>
             <HeaderIconButton label="Members" onClick={toggleMembersPanel}>
@@ -144,13 +185,18 @@ export default function RoomPage() {
           <MessageList
             messages={messages}
             roomName={room.name}
-            onToggleReaction={(messageId, emoji) => user && toggleReaction(messageId, emoji, user.id)}
+            hasMore={hasMore}
+            isLoadingMore={isLoadingMore}
+            onFetchMore={fetchMoreMessages}
+            onToggleReaction={(messageId: string, emoji: string) => user && toggleReaction(messageId, emoji, user.id)}
             onReply={setReplyingTo}
             onTogglePin={togglePin}
+            onEditMessage={(messageId: string, content: string) => user && editMessage(messageId, content, user.id)}
+            onDeleteMessage={(messageId: string) => user && deleteMessage(messageId, user.id)}
           />
 
           <div className="mx-auto w-full max-w-[960px] px-4">
-            <TypingIndicator names={typingUsers.map((entry) => entry.name)} />
+            <TypingIndicator names={typingUsers.map((entry: { userId: string; name: string }) => entry.name)} />
           </div>
 
           <MessageInput 

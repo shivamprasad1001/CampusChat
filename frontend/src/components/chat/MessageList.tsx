@@ -5,28 +5,50 @@ import MessageItem from './MessageItem'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAuth } from '@/hooks/useAuth'
 import { format, isSameDay } from 'date-fns'
-import { ArrowDown } from 'lucide-react'
+import { ArrowDown, Loader2 } from 'lucide-react'
+import { useInView } from 'react-intersection-observer'
 
 interface MessageListProps {
   messages: Message[]
   roomName: string
+  hasMore?: boolean
+  isLoadingMore?: boolean
+  onFetchMore?: () => void
   onToggleReaction: (messageId: string, emoji: string) => void
   onReply: (message: Message) => void
   onTogglePin: (messageId: string) => void
+  onEditMessage: (messageId: string, content: string) => void
+  onDeleteMessage: (messageId: string) => void
 }
 
 export default function MessageList({
   messages,
   roomName,
+  hasMore,
+  isLoadingMore,
+  onFetchMore,
   onToggleReaction,
   onReply,
   onTogglePin,
+  onEditMessage,
+  onDeleteMessage,
 }: MessageListProps) {
   const { user } = useAuth()
   const scrollRef = useRef<HTMLDivElement>(null)
   const previousCountRef = useRef(messages.length)
   const [showJumpToLatest, setShowJumpToLatest] = useState(false)
   const [isAtBottom, setIsAtBottom] = useState(true)
+
+  const { ref: inViewRef, inView } = useInView({
+    threshold: 0,
+    rootMargin: '100px 0px 0px 0px',
+  })
+
+  useEffect(() => {
+    if (inView && hasMore && onFetchMore && !isLoadingMore) {
+      onFetchMore()
+    }
+  }, [inView, hasMore, onFetchMore, isLoadingMore])
 
   const items = useMemo(() => {
     return messages.map((message, index) => {
@@ -137,6 +159,11 @@ export default function MessageList({
           aria-relevant="additions text"
           className="mx-auto flex w-full max-w-[960px] flex-col px-2 py-5 pb-10 md:px-4"
         >
+          {hasMore && (
+            <div ref={inViewRef} className="flex justify-center py-4">
+              {isLoadingMore && <Loader2 className="h-5 w-5 animate-spin text-[var(--accent)]" />}
+            </div>
+          )}
           {items.map(({ message, showHeader, showDateSeparator }) => (
             <div key={message.id}>
               {showDateSeparator && (
@@ -153,6 +180,8 @@ export default function MessageList({
                 onToggleReaction={(emoji) => onToggleReaction(message.id, emoji)}
                 onReply={onReply}
                 onTogglePin={onTogglePin}
+                onEditMessage={onEditMessage}
+                onDeleteMessage={onDeleteMessage}
               />
             </div>
           ))}

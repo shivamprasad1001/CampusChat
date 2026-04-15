@@ -32,6 +32,20 @@ interface ToggleReactionPayload {
   roomId: string;
 }
 
+interface EditMessagePayload {
+  messageId: string;
+  roomId: string;
+  content: string;
+  userId: string;
+}
+
+interface DeleteMessagePayload {
+  messageId: string;
+  roomId: string;
+  userId: string;
+}
+
+
 const onlineUsersByRoom = new Map<string, Set<string>>(); // roomId -> Set of userIds
 const socketToUser = new Map<string, { userId: string, roomId: string }>();
 
@@ -137,6 +151,39 @@ export function setupSocketHandlers(io: Server) {
         }
       } catch (err) {
         console.error('[Socket] toggle_reaction error:', err);
+      }
+    });
+
+    socket.on('edit_message', async ({ messageId, roomId, content, userId }: EditMessagePayload) => {
+      try {
+        const { data: message, error } = await supabase
+          .from('messages')
+          .update({ content, edited: true })
+          .eq('id', messageId)
+          .eq('sender_id', userId) // Enforce ownership
+          .select('*, profiles(name, avatar_url)')
+          .single();
+
+        if (error) throw error;
+        io.to(roomId).emit('message_edited', message);
+      } catch (err) {
+        console.error('[Socket] edit_message error:', err);
+      }
+    });
+
+    socket.on('delete_message', async ({ messageId, roomId, userId }: DeleteMessagePayload) => {
+      try {
+        // We delete the message outright from db
+        const { error } = await supabase
+          .from('messages')
+          .delete()
+          .eq('id', messageId)
+          .eq('sender_id', userId);
+
+        if (error) throw error;
+        io.to(roomId).emit('message_deleted', { messageId });
+      } catch (err) {
+        console.error('[Socket] delete_message error:', err);
       }
     });
 

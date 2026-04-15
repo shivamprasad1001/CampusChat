@@ -4,12 +4,15 @@ import { supabase } from '@/lib/supabase'
 import api from '@/lib/api'
 import { Message } from '@/types'
 import { io, Socket } from 'socket.io-client'
+import { RealtimePostgresInsertPayload } from '@supabase/supabase-js'
 import { useAuth } from '@/hooks/useAuth'
 
 export function useMessages(roomId: string) {
   const [messages, setMessages] = useState<Message[]>([])
   const [typingUsers, setTypingUsers] = useState<{ userId: string, name: string }[]>([])
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([])
+  const [hasMore, setHasMore] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const socketRef = useRef<Socket | null>(null)
   const { user } = useAuth()
 
@@ -17,8 +20,10 @@ export function useMessages(roomId: string) {
     // 1. Fetch history
     const fetchHistory = async () => {
       try {
-        const { data } = await api.get(`/messages/${roomId}`)
+        setHasMore(true)
+        const { data } = await api.get(`/messages/${roomId}?limit=50`)
         setMessages(data)
+        if (data.length < 50) setHasMore(false)
       } catch (err) {
         console.error('Failed to fetch messages', err)
       }
@@ -62,6 +67,16 @@ export function useMessages(roomId: string) {
       ))
     })
 
+    s.on('message_edited', (editedMessage: Message) => {
+      setMessages((prev) => prev.map(m => 
+        m.id === editedMessage.id ? editedMessage : m
+      ))
+    })
+
+    s.on('message_deleted', ({ messageId }) => {
+      setMessages((prev) => prev.filter(m => m.id !== messageId))
+    })
+
     // 3. Supabase Realtime Fallback
     const channel = supabase
       .channel(`room:${roomId}`)
@@ -70,8 +85,8 @@ export function useMessages(roomId: string) {
         schema: 'public',
         table: 'messages',
         filter: `room_id=eq.${roomId}`
-      }, (payload) => {
-        const newMessage = payload.new as Message
+      }, (payload: RealtimePostgresInsertPayload<Record<string, unknown>>) => {
+        const newMessage = payload.new as unknown as Message
         setMessages((prev) => {
           if (prev.find(m => m.id === newMessage.id)) return prev
           return [...prev, newMessage]
@@ -110,5 +125,37 @@ export function useMessages(roomId: string) {
     }
   }, [roomId])
 
-  return { messages, sendMessage, sendTyping, toggleReaction, togglePin, typingUsers, onlineUserIds }
+  const editMessage = useCallback((messageId: string, content: string, userId: string) => {
+    if (socketRef.current) {
+      socketRef.current.emit('edit_message', { roomId, messageId, content, userId })
+    }
+  }, [roomId])
+
+  const deleteMessage = useCallback((messageId: string, userId: string) => {
+    if (socketRef.current) {
+      socketRef.current.emit('delete_message', { roomId, messageId, userId })
+    }
+  }, [roomId])
+
+  const fetchMoreMessages = useCallback(async () => {
+    if (!hasMore || isLoadingMore || messages.length === 0) return;
+    setIsLoadingMore(true);
+    try {
+      const oldestMessage = messages[0];
+      const { data } = await api.get(`/messages/${roomId}?limit=50&before=${oldestMessage.created_at}`);
+      if (data.length < 50) setHasMore(false);
+      
+      setMessages(prev => {
+        const existingIds = new Set(prev.map(m => m.id));
+        const newMessages = data.filter((m: Message) => !existingIds.has(m.id));
+        return [...newMessages, ...prev];
+      });
+    } catch (err) {
+      console.error('Failed to fetch more messages', err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [hasMore, isLoadingMore, messages, roomId]);
+
+  return { messages, sendMessage, sendTyping, toggleReaction, togglePin, editMessage, deleteMessage, fetchMoreMessages, hasMore, isLoadingMore, typingUsers, onlineUserIds }
 }

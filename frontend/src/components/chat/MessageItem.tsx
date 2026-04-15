@@ -1,4 +1,6 @@
-import { Fragment, ReactNode } from 'react'
+import { Fragment, ReactNode, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { Message } from '@/types'
 import data from '@emoji-mart/data'
 import Picker from '@emoji-mart/react'
@@ -26,6 +28,8 @@ interface MessageItemProps {
   onToggleReaction: (emoji: string) => void
   onReply: (message: Message) => void
   onTogglePin: (messageId: string) => void
+  onEditMessage: (messageId: string, content: string) => void
+  onDeleteMessage: (messageId: string) => void
   showHeader: boolean
 }
 
@@ -36,9 +40,13 @@ export default function MessageItem({
   onToggleReaction,
   onReply,
   onTogglePin,
+  onEditMessage,
+  onDeleteMessage,
   showHeader,
 }: MessageItemProps) {
   const { user } = useAuth()
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState(message.content || '')
   const profile = message.profiles
   const displayName = profile?.name || (isOwn ? 'You' : 'Unknown user')
   const reactionsMap = (message.reactions || []).reduce(
@@ -92,15 +100,14 @@ export default function MessageItem({
           {showHeader && (
             <div className={cn('mb-1.5 flex items-center gap-2', isOwn ? 'flex-row-reverse pr-0 pl-20' : 'pr-20')}>
               <span className="font-semibold text-[var(--text-primary)]">{displayName}</span>
-              <time
-                className="text-[11px] text-[var(--text-secondary)]"
-                dateTime={message.created_at}
-                aria-label={format(new Date(message.created_at), 'PPpp')}
-              >
+              <time className="text-opacity-70">
                 {format(new Date(message.created_at), 'MMM d, p')}
               </time>
+              {message.edited && (
+                <span className="text-opacity-60 italic">(edited)</span>
+              )}
               {message.is_pinned && (
-                <div className="flex items-center gap-1 text-[10px] font-medium text-[var(--accent)]">
+                <div className="flex items-center gap-1 text-[10px] font-medium text-[var(--accent)] ml-1">
                   <Pin className="h-3 w-3 rotate-45" />
                   <span>Pinned</span>
                 </div>
@@ -135,7 +142,24 @@ export default function MessageItem({
               !showHeader && (isOwn ? 'pr-0.5' : 'pl-0.5')
             )}
           >
-            {message.content ? (
+            {isEditing ? (
+              <div className="flex flex-col gap-2 min-w-[250px] text-left">
+                <textarea
+                  className="w-full resize-none rounded-md border border-[var(--border-subtle)] bg-[var(--bg-surface)] px-2 py-1.5 text-[13px] text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  autoFocus
+                  rows={2}
+                />
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => setIsEditing(false)} className="text-[11px] text-[var(--text-secondary)] hover:text-white transition">Cancel</button>
+                  <button onClick={() => {
+                    onEditMessage(message.id, editContent);
+                    setIsEditing(false);
+                  }} className="text-[11px] bg-[var(--accent)] px-3 py-1 rounded text-white font-medium hover:bg-opacity-90 transition">Save</button>
+                </div>
+              </div>
+            ) : message.content ? (
               <MessageContent content={message.content} />
             ) : (
               <p className="text-[var(--text-secondary)]">Shared an attachment</p>
@@ -244,6 +268,16 @@ export default function MessageItem({
               <DropdownMenuItem onClick={() => onTogglePin(message.id)} className="cursor-pointer text-[13px]">
                 {message.is_pinned ? 'Unpin Message' : 'Pin Message'}
               </DropdownMenuItem>
+              {isOwn && (
+                <>
+                  <DropdownMenuItem onClick={() => setIsEditing(true)} className="cursor-pointer text-[13px]">
+                    Edit Message
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onDeleteMessage(message.id)} className="cursor-pointer text-[13px] text-red-500 focus:text-red-400">
+                    Delete Message
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -279,114 +313,52 @@ function ToolbarButton({
 }
 
 function MessageContent({ content }: { content: string }) {
-  const blocks = splitCodeBlocks(content)
-
   return (
-    <div className="space-y-3">
-      {blocks.map((block, index) => {
-        if (block.type === 'code') {
-          return (
-            <div
-              key={`code-${index}`}
-              className="overflow-hidden rounded-[12px] border border-[var(--border-subtle)] bg-[var(--bg-surface)]"
-            >
-              <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-2 text-[11px] text-[var(--text-secondary)]">
-                <span>{block.language || 'plain text'}</span>
-                <button
-                  type="button"
-                  onClick={() => navigator.clipboard.writeText(block.content)}
-                  className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1 text-[11px] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-                >
-                  <Copy className="h-3.5 w-3.5" strokeWidth={1.7} />
-                  Copy
-                </button>
-              </div>
-              <pre className="overflow-x-auto px-3 py-3 text-[12px] leading-6 text-[var(--text-primary)]">
-                <code>{block.content}</code>
-              </pre>
-            </div>
-          )
-        }
-
-        return block.content
-          .split('\n')
-          .filter(Boolean)
-          .map((paragraph, paragraphIndex) => (
-            <p
-              key={`text-${index}-${paragraphIndex}`}
-              className={cn(isEmojiOnly(paragraph) && 'text-[28px] leading-none')}
-            >
-              {renderInline(paragraph)}
-            </p>
-          ))
-      })}
+    <div className={cn("prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent prose-pre:m-0", isEmojiOnly(content) && 'prose-p:text-[28px] prose-p:leading-none')}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          a: ({ node, ...props }) => (
+            <a {...props} target="_blank" rel="noreferrer" className="text-[var(--accent)] hover:underline" />
+          ),
+          code({ node, inline, className, children, ...props }: any) {
+            const match = /language-(\w+)/.exec(className || '')
+            const language = match ? match[1] : 'text'
+            
+            if (!inline) {
+              return (
+                <div className="overflow-hidden rounded-[12px] border border-[var(--border-subtle)] bg-[var(--bg-surface)] my-3 not-prose">
+                  <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-2 text-[11px] text-[var(--text-secondary)] bg-[rgba(0,0,0,0.2)]">
+                    <span>{language}</span>
+                    <button
+                      type="button"
+                      onClick={() => navigator.clipboard.writeText(String(children).replace(/\n$/, ''))}
+                      className="inline-flex items-center gap-1 rounded-[8px] px-2 py-1 text-[11px] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                    >
+                      <Copy className="h-3.5 w-3.5" strokeWidth={1.7} />
+                      Copy
+                    </button>
+                  </div>
+                  <pre className="overflow-x-auto px-4 py-4 text-[13px] leading-6 text-[var(--text-primary)] m-0 bg-transparent">
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  </pre>
+                </div>
+              )
+            }
+            return (
+              <code className="rounded-[4px] bg-[var(--bg-elevated)] border border-[var(--border-subtle)] px-1.5 py-0.5 font-mono text-[11.5px] text-[var(--text-primary)]" {...props}>
+                {children}
+              </code>
+            )
+          }
+        }}
+      >
+        {content}
+      </ReactMarkdown>
     </div>
   )
-}
-
-function renderInline(text: string) {
-  const parts = text.split(/(`[^`]+`|https?:\/\/[^\s]+)/g)
-
-  return parts.map((part, index) => {
-    if (!part) return null
-
-    if (/^`[^`]+`$/.test(part)) {
-      return (
-        <code
-          key={index}
-          className="rounded-[4px] bg-[var(--bg-elevated)] px-1 py-0.5 font-mono text-[11px] text-[var(--text-primary)]"
-        >
-          {part.slice(1, -1)}
-        </code>
-      )
-    }
-
-    if (/^https?:\/\/[^\s]+$/.test(part)) {
-      return (
-        <a
-          key={index}
-          href={part}
-          target="_blank"
-          rel="noreferrer"
-          className="text-[var(--accent)] hover:underline"
-        >
-          {part}
-        </a>
-      )
-    }
-
-    return <Fragment key={index}>{part}</Fragment>
-  })
-}
-
-function splitCodeBlocks(content: string) {
-  const regex = /```([\w-]+)?\n?([\s\S]*?)```/g
-  const blocks: Array<
-    | { type: 'text'; content: string }
-    | { type: 'code'; language?: string; content: string }
-  > = []
-  let lastIndex = 0
-
-  for (const match of content.matchAll(regex)) {
-    const matchIndex = match.index ?? 0
-
-    if (matchIndex > lastIndex) {
-      blocks.push({ type: 'text', content: content.slice(lastIndex, matchIndex).trim() })
-    }
-
-    blocks.push({
-      type: 'code',
-      language: match[1],
-      content: match[2].trim(),
-    })
-    lastIndex = matchIndex + match[0].length
-  }
-
-  if (lastIndex < content.length) {
-    blocks.push({ type: 'text', content: content.slice(lastIndex).trim() })
-  }
-
-  return blocks.filter((block) => block.content.length > 0)
 }
 
 function containsCodeBlock(content: string) {

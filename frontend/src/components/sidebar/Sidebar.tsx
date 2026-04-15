@@ -1,10 +1,25 @@
 
 import RoomList from './RoomList'
 import UserBar from './UserBar'
-import { ChevronDown, Command, GraduationCap } from 'lucide-react'
+import { ChevronDown, GraduationCap, Search, X } from 'lucide-react'
+import { useAppShell } from '@/components/app-shell/AppShellContext'
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
 export default function Sidebar() {
+  const { searchQuery, setSearchQuery } = useAppShell()
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === '/' && (e.target as HTMLElement).tagName !== 'INPUT' && (e.target as HTMLElement).tagName !== 'TEXTAREA' && (e.target as HTMLElement).getAttribute('contenteditable') !== 'true') {
+        e.preventDefault()
+        document.getElementById('room-search-input')?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   return (
     <div className="flex h-full flex-col bg-[var(--bg-surface)] text-[var(--text-primary)]">
       <div className="flex h-[52px] items-center px-4">
@@ -40,10 +55,25 @@ export default function Sidebar() {
         </button>
       </div>
 
-      <div className="px-3 pb-2">
-        <div className="flex items-center gap-2 rounded-[12px] border border-[var(--border-subtle)] bg-[rgba(255,255,255,0.02)] px-3 py-2 text-[11px] text-[var(--text-secondary)]">
-          <Command className="h-3.5 w-3.5 text-[var(--accent)]" strokeWidth={1.8} />
-          <span>Press `/` for quick actions</span>
+      <div className="px-3 pb-2 pt-1">
+        <div className="relative group">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)] transition-colors group-focus-within:text-[var(--accent)]" strokeWidth={1.8} />
+          <input
+            id="room-search-input"
+            type="text"
+            placeholder="Search channels..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-10 w-full rounded-[12px] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] pl-9 pr-9 text-[13px] font-medium text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/10"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       </div>
 

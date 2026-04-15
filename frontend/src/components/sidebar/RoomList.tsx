@@ -4,12 +4,14 @@ import { Room } from '@/types'
 import { Link, useParams } from 'react-router-dom'
 import { Hash, Lock, MessageSquare, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAppShell } from '@/components/app-shell/AppShellContext'
 
 export default function RoomList() {
   const [rooms, setRooms] = useState<Room[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { roomId } = useParams()
+  const { searchQuery } = useAppShell()
 
   useEffect(() => {
     const fetchRooms = async () => {
@@ -29,8 +31,12 @@ export default function RoomList() {
     fetchRooms()
   }, [])
 
-  const channels = rooms.filter((room) => room.type !== 'dm')
-  const directMessages = rooms.filter((room) => room.type === 'dm')
+  const filteredRooms = rooms.filter((room) => 
+    room.name.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const channels = filteredRooms.filter((room) => room.type !== 'dm')
+  const directMessages = filteredRooms.filter((room) => room.type === 'dm')
 
   if (loading) {
     return (
@@ -101,6 +107,11 @@ export default function RoomList() {
           ))}
         </div>
       </section>
+      {filteredRooms.length === 0 && searchQuery && (
+        <div className="px-4 py-8 text-center">
+          <p className="text-[13px] text-[var(--text-muted)]">No results for "{searchQuery}"</p>
+        </div>
+      )}
     </div>
   )
 }
