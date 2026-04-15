@@ -18,21 +18,42 @@ dotenv.config();
 const app = express();
 const httpServer = createServer(app);
 
-const allowedOrigins = [
-  process.env.FRONTEND_URL || 'http://localhost:3000',
+// Build allowed origins from env — supports comma-separated FRONTEND_URL
+const allowedOrigins: string[] = [
+  'http://localhost:3000',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:5174',
   'http://127.0.0.1:5174'
 ];
 
+if (process.env.FRONTEND_URL) {
+  process.env.FRONTEND_URL.split(',').forEach(url => {
+    const trimmed = url.trim().replace(/\/+$/, ''); // strip trailing slashes
+    if (trimmed && !allowedOrigins.includes(trimmed)) {
+      allowedOrigins.push(trimmed);
+    }
+  });
+}
+
+function isOriginAllowed(origin: string): boolean {
+  if (allowedOrigins.includes(origin)) return true;
+  if (process.env.NODE_ENV === 'development') return true;
+  // Allow Vercel preview deployments (e.g. campus-chat-xxx-user.vercel.app)
+  if (origin.endsWith('.vercel.app')) return true;
+  return false;
+}
+
+console.log('[CORS] Allowed origins:', allowedOrigins);
+
 const io = new Server(httpServer, {
   cors: {
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      if (isOriginAllowed(origin)) {
         callback(null, true);
       } else {
+        console.warn(`[CORS] Blocked origin: ${origin}`);
         callback(new Error('Not allowed by CORS'));
       }
     },
@@ -45,9 +66,10 @@ const io = new Server(httpServer, {
 app.use(cors({
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+    if (isOriginAllowed(origin)) {
       callback(null, true);
     } else {
+      console.warn(`[CORS] Blocked origin: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
