@@ -101,6 +101,71 @@
     --ring: var(--accent);
   }
 
+  /* ── Light macOS Theme ── */
+  .theme-light {
+    color-scheme: light;
+    
+    --bg-base: #f0f2f5;
+    --bg-surface: #ffffff;
+    --bg-elevated: #f9fafb;
+    --bg-hover: #f1f3f5;
+    --bg-active: #e9ecef;
+    --bg-glass: rgba(255, 255, 255, 0.72);
+    --bg-glass-heavy: rgba(255, 255, 255, 0.92);
+
+    --border-subtle: rgba(0, 0, 0, 0.04);
+    --border-default: rgba(0, 0, 0, 0.08);
+    --border-strong: rgba(0, 0, 0, 0.12);
+    --border-accent: rgba(0, 122, 255, 0.15);
+
+    --text-primary: #1c1c1e;
+    --text-secondary: #636366;
+    --text-muted: #8e8e93;
+    --text-inverse: #ffffff;
+
+    --accent: #007aff;
+    --accent-hover: #0066d6;
+    --accent-muted: rgba(0, 122, 255, 0.1);
+    --accent-glow: rgba(0, 122, 255, 0.08);
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06);
+    --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-glow: 0 0 16px rgba(0, 122, 255, 0.08);
+
+    --primary-foreground: #ffffff;
+  }
+
+  /* ── Midnight Graphite Theme ── */
+  .theme-graphite {
+    color-scheme: dark;
+
+    --bg-base: #000000;
+    --bg-surface: #0a0a0a;
+    --bg-elevated: #111111;
+    --bg-hover: #1a1a1a;
+    --bg-active: #222222;
+    --bg-glass: rgba(0, 0, 0, 0.8);
+    --bg-glass-heavy: rgba(0, 0, 0, 0.95);
+
+    --border-subtle: rgba(255, 255, 255, 0.03);
+    --border-default: rgba(255, 255, 255, 0.06);
+    --border-strong: rgba(255, 255, 255, 0.1);
+
+    --text-primary: #ffffff;
+    --text-secondary: #a1a1a1;
+    --text-muted: #666666;
+
+    --accent: #ededed;
+    --accent-hover: #ffffff;
+    --accent-muted: rgba(255, 255, 255, 0.1);
+    --accent-glow: rgba(255, 255, 255, 0.05);
+
+    --shadow-glow: 0 0 24px rgba(255, 255, 255, 0.05);
+  }
+
   /* ── Density Variants ── */
   .density-compact {
     --density-padding: 6px;

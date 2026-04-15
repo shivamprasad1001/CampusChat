@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { useSettings, type FontSize, type MessageDensity } from '@/hooks/useSettings'
+import { useSettings, type FontSize, type MessageDensity, type AppTheme } from '@/hooks/useSettings'
 import api from '@/lib/api'
 import {
   User,
@@ -11,6 +11,10 @@ import {
   Camera,
   Check,
   ChevronRight,
+  Sparkles,
+  Zap,
+  FileText,
+  ShieldCheck,
 } from 'lucide-react'
 
 interface UserSettingsModalProps {
@@ -301,11 +305,41 @@ function AppearanceSection() {
     { value: 'spacious', label: 'Spacious', desc: 'Relaxed, airy layout' },
   ]
 
+  const { theme, setTheme } = useSettings()
+
   return (
     <div className="space-y-8">
       <div>
         <h3 className="font-display text-xl font-bold text-[var(--text-primary)]">Appearance</h3>
         <p className="mt-1 text-[13px] text-[var(--text-secondary)]">Customize how CampusChat looks for you</p>
+      </div>
+
+      {/* Theme Picker */}
+      <div className="space-y-3">
+        <label className="block text-[12px] font-bold uppercase tracking-[0.06em] text-[var(--text-muted)]">Theme</label>
+        <div className="grid grid-cols-3 gap-3">
+          <ThemeOption
+            id="dark"
+            label="Dark macOS"
+            colors={['#1c1c1e', '#5b9aff']}
+            active={theme === 'dark'}
+            onClick={() => setTheme('dark')}
+          />
+          <ThemeOption
+            id="light"
+            label="Light macOS"
+            colors={['#ffffff', '#007aff']}
+            active={theme === 'light'}
+            onClick={() => setTheme('light')}
+          />
+          <ThemeOption
+            id="graphite"
+            label="Midnight"
+            colors={['#000000', '#ffffff']}
+            active={theme === 'graphite'}
+            onClick={() => setTheme('graphite')}
+          />
+        </div>
       </div>
 
       {/* Font Size */}
@@ -384,6 +418,41 @@ function AppearanceSection() {
   )
 }
 
+function ThemeOption({ id, label, colors, active, onClick }: { 
+  id: string
+  label: string
+  colors: string[]
+  active: boolean
+  onClick: () => void 
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`group relative flex flex-col items-center gap-2 rounded-[var(--radius-md)] border p-3 transition-all ${
+        active 
+          ? 'border-[var(--accent)] bg-[var(--accent-muted)] shadow-[var(--shadow-sm)]' 
+          : 'border-[var(--border-subtle)] bg-[var(--bg-elevated)] hover:border-[var(--border-default)] hover:bg-[var(--bg-hover)]'
+      }`}
+    >
+      <div 
+        className="flex h-12 w-full items-center justify-center gap-1 rounded-[var(--radius-sm)] border border-[var(--border-subtle)] shadow-inner"
+        style={{ background: colors[0] }}
+      >
+        <div className="h-4 w-4 rounded-full" style={{ background: colors[1] }} />
+        <div className="h-1 w-8 rounded-full opacity-20" style={{ background: colors[1] }} />
+      </div>
+      <span className={`text-[11px] font-bold uppercase tracking-wider ${active ? 'text-[var(--accent)]' : 'text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]'}`}>
+        {label}
+      </span>
+      {active && (
+        <div className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--accent)] text-white ring-2 ring-[var(--bg-surface)]">
+          <Check className="h-2.5 w-2.5" />
+        </div>
+      )}
+    </button>
+  )
+}
+
 /* ─── Notifications Section ─── */
 function NotificationsSection() {
   const { notificationSound, setNotificationSound } = useSettings()
@@ -438,31 +507,73 @@ function ToggleRow({ label, description, checked, onChange }: {
 /* ─── About Section ─── */
 function AboutSection() {
   return (
-    <div className="space-y-8">
-      <div>
-        <h3 className="font-display text-xl font-bold text-[var(--text-primary)]">About CampusChat</h3>
-        <p className="mt-1 text-[13px] text-[var(--text-secondary)]">Information about this application</p>
+    <div className="mx-auto max-w-2xl space-y-12 py-4">
+      {/* Header with App Info */}
+      <div className="flex flex-col items-center text-center">
+        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[var(--radius-xl)] bg-gradient-to-br from-[var(--accent)] to-indigo-600 text-white shadow-[var(--shadow-lg),0_0_24px_rgba(91,154,255,0.15)]">
+          <span className="text-4xl font-bold">C</span>
+        </div>
+        <h3 className="font-display text-2xl font-bold text-[var(--text-primary)]">CampusChat</h3>
+        <p className="mt-1 text-[13px] font-medium text-[var(--text-muted)]">Version 1.2.0 • Build 240416</p>
       </div>
 
-      <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)]">
-        <div className="flex items-center gap-4 border-b border-[var(--border-subtle)] px-5 py-5">
-          <div className="flex h-12 w-12 items-center justify-center rounded-[var(--radius-md)] bg-gradient-to-br from-[var(--accent)] to-indigo-600 text-white shadow-[var(--shadow-md)]">
-            <span className="text-xl font-bold">C</span>
+      {/* The Story / Narrative */}
+      <div className="space-y-4">
+        <h4 className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">The Vision</h4>
+        <div className="space-y-3 text-[14px] leading-relaxed text-[var(--text-secondary)]">
+          <p>
+            CampusChat was born out of a simple frustration: college communication is broken.
+            Between overflowing WhatsApp groups, buried announcements, and the mix of academic updates with social noise, keeping track of university life is harder than it should be.
+          </p>
+          <p>
+            This platform was built to be a dedicated space for academic life—a place where students and faculty coexist locally, and where important information is never more than a click away.
+          </p>
+        </div>
+      </div>
+
+      {/* Credits / Founder */}
+      <div className="space-y-4">
+        <h4 className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Founding Developer</h4>
+        <div className="flex items-center gap-4 rounded-[var(--radius-lg)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)]/30 p-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent-muted)] font-bold text-[var(--accent)]">
+            SP
           </div>
           <div>
-            <h4 className="text-[15px] font-bold text-[var(--text-primary)]">CampusChat</h4>
-            <p className="text-[12px] text-[var(--text-secondary)]">Academic Collaboration Platform</p>
+            <p className="text-[14px] font-bold text-[var(--text-primary)]">Shivam Prasad</p>
+            <p className="text-[12px] text-[var(--text-secondary)]">Final-year CS Student at NITRA Technical Campus</p>
           </div>
         </div>
+        <p className="text-[13px] italic leading-relaxed text-[var(--text-muted)]">
+          "I built this because I lived the problem every day. If I'm building products, I want to build ones that actually matter to my community."
+        </p>
+      </div>
 
-        <div className="space-y-0 divide-y divide-[var(--border-subtle)]">
-          <AboutRow label="Version" value="1.0.0" />
-          <AboutRow label="Frontend" value="React + Vite + TypeScript" />
-          <AboutRow label="Backend" value="Express + Socket.IO" />
-          <AboutRow label="Database" value="Supabase (PostgreSQL)" />
-          <AboutRow label="Hosting" value="Vercel + Render" />
+      {/* Tech Info List */}
+      <div className="space-y-2">
+        <h4 className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--text-muted)]">Technical Stack</h4>
+        <div className="divide-y divide-[var(--border-subtle)] overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)]">
+          <SimpleInfoRow label="Frontend" value="React, Vite, TypeScript" />
+          <SimpleInfoRow label="Backend" value="Node.js, Express, Socket.io" />
+          <SimpleInfoRow label="Database" value="Supabase (PostgreSQL), Firebase" />
         </div>
       </div>
+
+      {/* Footer */}
+      <div className="pt-8 text-center">
+        <p className="text-[11px] text-[var(--text-muted)]">
+          &copy; 2024 CampusChat. All rights reserved.<br />
+          Built with ❤️ for the student community.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function SimpleInfoRow({ label, value }: { label: string, value: string }) {
+  return (
+    <div className="flex justify-between bg-[var(--bg-surface)] px-4 py-2.5 text-[13px]">
+      <span className="text-[var(--text-secondary)]">{label}</span>
+      <span className="font-semibold text-[var(--text-primary)]">{value}</span>
     </div>
   )
 }

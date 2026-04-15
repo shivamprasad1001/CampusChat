@@ -2,12 +2,15 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 
 export type FontSize = 'small' | 'default' | 'large'
 export type MessageDensity = 'compact' | 'cozy' | 'spacious'
+export type AppTheme = 'dark' | 'light' | 'graphite'
 
 interface SettingsContextValue {
   fontSize: FontSize
   setFontSize: (size: FontSize) => void
   messageDensity: MessageDensity
   setMessageDensity: (density: MessageDensity) => void
+  theme: AppTheme
+  setTheme: (theme: AppTheme) => void
   notificationSound: boolean
   setNotificationSound: (enabled: boolean) => void
 }
@@ -44,6 +47,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [messageDensity, setMessageDensityState] = useState<MessageDensity>(
     (saved.messageDensity as MessageDensity) || 'cozy'
   )
+  const [theme, setThemeState] = useState<AppTheme>(
+    (saved.theme as AppTheme) || 'dark'
+  )
   const [notificationSound, setNotificationSoundState] = useState(
     saved.notificationSound !== false // default true
   )
@@ -57,6 +63,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const setMessageDensity = (density: MessageDensity) => {
     setMessageDensityState(density)
     saveSettings({ messageDensity: density })
+  }
+
+  const setTheme = (t: AppTheme) => {
+    setThemeState(t)
+    saveSettings({ theme: t })
   }
 
   const setNotificationSound = (enabled: boolean) => {
@@ -81,16 +92,26 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [messageDensity])
 
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.remove('theme-light', 'theme-graphite')
+    if (theme !== 'dark') {
+      root.classList.add(`theme-${theme}`)
+    }
+  }, [theme])
+
   const value = useMemo(
     () => ({
       fontSize,
       setFontSize,
       messageDensity,
       setMessageDensity,
+      theme,
+      setTheme,
       notificationSound,
       setNotificationSound,
     }),
-    [fontSize, messageDensity, notificationSound]
+    [fontSize, messageDensity, theme, notificationSound]
   )
 
   return (
