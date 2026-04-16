@@ -41,6 +41,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchProfileData = async (userId: string): Promise<Profile | null> => {
     try {
+      console.log(`[Auth] Fetching profile for user: ${userId}`)
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -48,7 +49,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .single()
       
       if (error) {
-        if (error.code !== 'PGRST116') {
+        if (error.code === '401' || error.message?.includes('JWT')) {
+          console.warn('[Auth] Session 401 during profile fetch. Clearing token.')
+          signOut()
+        } else if (error.code !== 'PGRST116') {
           console.error('[Auth] Profile fetch error:', error)
         }
         return null
@@ -69,29 +73,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }
 
   const hardReset = () => {
-    console.log('[Auth] Performing deep clean of session data...')
+    console.warn('[Auth] PERFORMING HARD RESET - Clearing all auth storage')
     
-    // 1. Wipe all Supabase-related keys from localStorage
+    // Wipe all Supabase-related keys from localStorage
     Object.keys(localStorage).forEach(key => {
       if (key.startsWith('sb-') || key.includes('supabase.auth.token')) {
         localStorage.removeItem(key)
       }
     })
     
-    // 2. Clear state locally
+    // Clear state locally
     setState({ user: null, profile: null, loading: false, error: null })
     
-    // 3. Force reload to clear any memory-leaked Supabase client state
+    // Redirect to login with a hard reload
     window.location.href = '/login'
   }
 
   const signOut = async () => {
+    console.log('[Auth] Signing out...')
     try {
       await supabase.auth.signOut()
     } finally {
       setState({ user: null, profile: null, loading: false, error: null })
       
-      // Safe cleanup of local storage
+      // Clean up specific storage keys
       try {
         const url = import.meta.env.VITE_SUPABASE_URL
         if (url) {
@@ -99,7 +104,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           localStorage.removeItem(storageKey)
         }
       } catch (e) {
-        // Ignore URL parsing errors
+        // Ignore parsing errors
       }
     }
   }
@@ -108,8 +113,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     let timeoutId: ReturnType<typeof setTimeout>
 
     const handleInitialAuth = async () => {
+      console.log('[Auth] Initializing authentication...')
+      
       // 0. Configuration check
       if (!isSupabaseConfigured) {
+        console.error('[Auth] Supabase URL or Anon Key is missing!')
         setState({ 
           user: null, 
           profile: null, 
@@ -120,36 +128,48 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return
       }
 
-      // 1. Set safety timeout
+      // 1. Direct Token Check (Hint for mobile browsers)
+      const hasPotentialToken = Object.keys(localStorage).some(key => key.startsWith('sb-'))
+      console.log(`[Auth] Persistent storage check: ${hasPotentialToken ? 'TOKEN FOUND' : 'NO TOKEN'}`)
+
+      // 2. Set safety timeout
       timeoutId = setTimeout(() => {
         if (!isInitialized.current) {
-          console.warn('[Auth] Initialization timed out after 8s. Forcing loading screen to clear.')
+          console.warn('[Auth] Initialization timed out. Clearing loading screen for safety.')
           setState(prev => ({ ...prev, loading: false }))
           isInitialized.current = true
         }
       }, AUTH_TIMEOUT_MS)
 
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        console.log('[Auth] Restoring session...')
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError) throw sessionError
         if (isInitialized.current) return // Already timed out
 
         const user = session?.user ?? null
         let profile = null
+        
         if (user) {
+          console.log(`[Auth] Session restored for user: ${user.email}`)
           profile = await fetchProfileData(user.id)
+        } else {
+          console.log('[Auth] No active session found')
         }
         
         setState({ user, profile, loading: false, error: null })
-        isInitialized.current = true
-        if (timeoutId) clearTimeout(timeoutId)
+        console.log('[Auth] Initialization complete')
+        
       } catch (err) {
-        console.error('[Auth] Initial check failed:', err)
+        console.error('[Auth] Critical initialization failure:', err)
         setState({ 
           user: null, 
           profile: null, 
           loading: false, 
-          error: err instanceof Error ? err.message : 'Authentication failed to initialize'
+          error: err instanceof Error ? err.message : 'Authentication failed'
         })
+      } finally {
         isInitialized.current = true
         if (timeoutId) clearTimeout(timeoutId)
       }
@@ -161,6 +181,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
+        console.log(`[Auth] Event: ${event}`)
+        
+        // Skip initial session event if we already handled it in handleInitialAuth
         if (!isInitialized.current && event === 'INITIAL_SESSION') return
 
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
