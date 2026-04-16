@@ -13,6 +13,7 @@ interface AuthState {
 
 interface AuthContextType extends AuthState {
   signOut: () => Promise<void>
+  hardReset: () => void
   refreshProfile: () => Promise<void>
 }
 
@@ -22,6 +23,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   error: null,
   signOut: async () => {},
+  hardReset: () => {},
   refreshProfile: async () => {}
 })
 
@@ -64,6 +66,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const profile = await fetchProfileData(state.user.id)
       setState(prev => ({ ...prev, profile, loading: false }))
     }
+  }
+
+  const hardReset = () => {
+    console.log('[Auth] Performing deep clean of session data...')
+    
+    // 1. Wipe all Supabase-related keys from localStorage
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('sb-') || key.includes('supabase.auth.token')) {
+        localStorage.removeItem(key)
+      }
+    })
+    
+    // 2. Clear state locally
+    setState({ user: null, profile: null, loading: false, error: null })
+    
+    // 3. Force reload to clear any memory-leaked Supabase client state
+    window.location.href = '/login'
   }
 
   const signOut = async () => {
@@ -161,7 +180,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ ...state, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ ...state, signOut, hardReset, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   )
