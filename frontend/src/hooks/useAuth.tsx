@@ -1,5 +1,5 @@
 
-import { useEffect, useState, createContext, useContext } from 'react'
+import { useEffect, useState, createContext, useContext, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { User, AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { Profile } from '@/types'
@@ -22,6 +22,8 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
   refreshProfile: async () => {}
 })
+
+const AUTH_TIMEOUT_MS = 8000 // 8 seconds safety timeout
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, setState] = useState<AuthState>({
@@ -94,7 +96,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+      if (timeoutId) clearTimeout(timeoutId)
+    }
   }, [])
 
   const signOut = async () => {

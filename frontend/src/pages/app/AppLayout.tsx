@@ -62,8 +62,19 @@ function AppShellFrame() {
 }
 
 export default function AppLayout() {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, loading, signOut } = useAuth()
   const navigate = useNavigate()
+  const [showRecovery, setShowRecovery] = useState(false)
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout
+    if (loading) {
+      timer = setTimeout(() => setShowRecovery(true), 5000)
+    } else {
+      setShowRecovery(false)
+    }
+    return () => clearTimeout(timer)
+  }, [loading])
 
   useEffect(() => {
     if (loading) return
@@ -77,11 +88,25 @@ export default function AppLayout() {
 
   if (loading) {
     return (
-      <div className="app-shell flex min-h-[100dvh] items-center justify-center">
-        <div className="glass-panel flex min-w-[220px] items-center gap-3 rounded-[var(--radius-lg)] px-5 py-4 text-[var(--text-secondary)]">
+      <div className="app-shell flex min-h-[100dvh] flex-col items-center justify-center gap-6 p-6">
+        <div className="glass-panel flex min-w-[240px] items-center gap-3 rounded-[var(--radius-lg)] px-5 py-4 text-[var(--text-secondary)] shadow-[var(--shadow-lg)]">
           <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--accent)]" />
           <span className="font-medium">Loading your workspace…</span>
         </div>
+
+        {showRecovery && (
+          <div className="animate-in fade-in slide-in-from-bottom-2 flex flex-col items-center gap-3 text-center duration-700">
+            <p className="max-w-[280px] text-[12px] text-[var(--text-muted)]">
+              This is taking longer than usual. There might be a connection issue or a stale session.
+            </p>
+            <button
+              onClick={() => signOut()}
+              className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-2 text-[12px] font-semibold text-[var(--text-primary)] transition-all hover:bg-[var(--bg-hover)] active:scale-95"
+            >
+              Reset Session & Sign Out
+            </button>
+          </div>
+        )}
       </div>
     )
   }
