@@ -110,7 +110,10 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 // Socket.IO
 setupSocketHandlers(io);
 
-const PORT = process.env.PORT || 4000;
-httpServer.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+const PORT = Number(process.env.PORT) || 4000;
+const HOST = '0.0.0.0'; // IMPORTANT: Listen on all network interfaces for mobile access
+
+httpServer.listen(PORT, HOST, () => {
+  console.log(`Server running on http://${HOST}:${PORT}`);
+  console.log(`Local Network Access: http://192.168.1.13:${PORT}`);
 });

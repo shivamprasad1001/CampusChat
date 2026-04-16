@@ -6,6 +6,8 @@ import { AlertCircle, Loader2, RefreshCw } from 'lucide-react'
 import { Room } from '@/types'
 import { AxiosError } from 'axios'
 
+const ROOMS_CACHE_KEY = 'campus_chat_rooms_v1'
+
 export default function RootPage() {
   const navigate = useNavigate()
   const { user, profile, loading: authLoading } = useAuth()
@@ -14,13 +16,13 @@ export default function RootPage() {
 
   const navigateToGeneral = useCallback(async () => {
     if (!user) return
-    
+
     setError(null)
     setIsRetrying(true)
 
     try {
       const { data } = await api.get<Room[]>('/rooms')
-      
+
       if (!data || data.length === 0) {
         setError('No rooms found. Please contact support.')
         return
@@ -28,13 +30,16 @@ export default function RootPage() {
 
       const generalRoom = data.find((r: Room) => r.name === 'general')
       const targetRoom = generalRoom || data[0]
-      
+
       if (targetRoom) {
+        if (data.length > 0) {
+          localStorage.setItem(ROOMS_CACHE_KEY, JSON.stringify(data))
+        }
         navigate(`/rooms/${targetRoom.id}`)
       }
     } catch (err: unknown) {
       console.error('Failed to fetch rooms:', err)
-      
+
       const axiosError = err as AxiosError<{ error: string }>
       const status = axiosError.response?.status
       if (status === 401) {
@@ -58,17 +63,36 @@ export default function RootPage() {
     if (!user) {
       navigate('/login')
     } else {
+      // Real-App Fix: Try to navigate instantly using cached rooms
+      const cached = localStorage.getItem(ROOMS_CACHE_KEY)
+      if (cached) {
+        try {
+          const rooms = JSON.parse(cached) as Room[]
+          const general = rooms.find(r => r.name === 'general') || rooms[0]
+          if (general) {
+            navigate(`/rooms/${general.id}`, { replace: true })
+            // We still trigger background refresh to update cache/redirect if deleted
+            navigateToGeneral() 
+            return
+          }
+        } catch (e) {
+          localStorage.removeItem(ROOMS_CACHE_KEY)
+        }
+      }
+      
       navigateToGeneral()
     }
   }, [user, authLoading, navigate, navigateToGeneral])
 
-  if (authLoading || (user && !error)) {
+  if (authLoading || isRetrying) {
     return (
       <div className="app-shell flex min-h-[100dvh] flex-col items-center justify-center gap-4">
         <div className="relative">
           <Loader2 className="h-10 w-10 animate-spin text-[var(--accent)]" />
         </div>
-        <p className="text-[13px] font-medium text-[var(--text-secondary)]">Loading CampusChat…</p>
+        <p className="text-[13px] font-medium text-[var(--text-secondary)]">
+          {authLoading ? 'Loading your workspace…' : 'Connecting to CampusChat…'}
+        </p>
       </div>
     )
   }
