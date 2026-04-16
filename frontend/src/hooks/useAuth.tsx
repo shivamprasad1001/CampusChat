@@ -275,7 +275,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       window.clearTimeout(fallbackTimer)
       window.clearTimeout(hardTimeout)
       subscription.unsubscribe()
-      if (timeoutId) clearTimeout(timeoutId)
     }
   }, [])
 

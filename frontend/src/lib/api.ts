@@ -1,5 +1,18 @@
 import axios from 'axios'
-import { clearSupabaseAuthStorage, supabase } from './supabase'
+import { supabase } from './supabase'
+
+/** Remove all Supabase session keys from localStorage. */
+function clearSupabaseStorage(): void {
+  if (typeof window === 'undefined') return
+  try {
+    const keysToRemove: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith('sb-')) keysToRemove.push(key)
+    }
+    keysToRemove.forEach((key) => localStorage.removeItem(key))
+  } catch { /* storage may be unavailable */ }
+}
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000',
@@ -45,7 +58,7 @@ api.interceptors.response.use(
       } catch (signOutError) {
         console.warn('[API] Supabase local signOut failed during 401 handling.', signOutError)
       } finally {
-        clearSupabaseAuthStorage()
+        clearSupabaseStorage()
       }
 
       if (
