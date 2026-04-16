@@ -1,20 +1,36 @@
-import { useEffect, useState, createContext, useContext, useRef } from 'react'
-import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import { User, AuthChangeEvent, Session } from '@supabase/supabase-js'
+import { useEffect, useState, useRef, createContext, useContext } from 'react'
+import { supabase } from '@/lib/supabase'
+import { Session, User } from '@supabase/supabase-js'
 import { Profile } from '@/types'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface AuthState {
   user: User | null
   profile: Profile | null
+  /** True only during the initial session resolution on mount. */
   loading: boolean
   error: string | null
 }
 
 interface AuthContextType extends AuthState {
   signOut: () => Promise<void>
-  hardReset: () => void
   refreshProfile: () => Promise<void>
+  /**
+   * Clears every Supabase key from localStorage and reloads the page.
+   * Use this as a last-resort recovery when the session is corrupt.
+   */
+  hardReset: () => void
 }
+
+const PROFILE_FETCH_TIMEOUT_MS = 7000
+const AUTH_HARD_TIMEOUT_MS = 12000
+
+// ---------------------------------------------------------------------------
+// Context (safe default — loading is true until the listener fires)
+// ---------------------------------------------------------------------------
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -22,11 +38,72 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   error: null,
   signOut: async () => {},
-  hardReset: () => {},
   refreshProfile: async () => {},
+  hardReset: () => {},
 })
 
-const AUTH_TIMEOUT_MS = 8000 // 8 seconds safety timeout
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+async function fetchProfile(userId: string): Promise<Profile | null> {
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (error) {
+      console.error('[Auth] Profile fetch error:', error.message)
+      return null
+    }
+
+    return data as Profile
+  } catch (err) {
+    console.error('[Auth] Unexpected profile error:', err)
+    return null
+  }
+}
+
+/**
+ * Removes all Supabase-related keys from localStorage without touching
+ * anything else. Supabase keys always start with "sb-".
+ */
+function clearSupabaseStorage(): void {
+  if (typeof window === 'undefined') return
+
+  try {
+    const keysToRemove: string[] = []
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith('sb-')) {
+        keysToRemove.push(key)
+      }
+    }
+
+    keysToRemove.forEach((key) => localStorage.removeItem(key))
+  } catch {
+    // localStorage may be unavailable in some private-browsing environments.
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => resolve(fallback), timeoutMs)
+  })
+
+  const result = await Promise.race([promise, timeoutPromise])
+  if (timeoutId) clearTimeout(timeoutId)
+  return result
+}
+
+// ---------------------------------------------------------------------------
+// Provider
+// ---------------------------------------------------------------------------
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, setState] = useState<AuthState>({
@@ -36,189 +113,185 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     error: null,
   })
 
-  const isInitialized = useRef(false)
+  /**
+   * Prevent state updates after the component has unmounted (e.g. during
+   * hot-module replacement or strict-mode double-effects in development).
+   */
+  const mountedRef = useRef(true)
+  const initResolvedRef = useRef(false)
 
-  const fetchProfileData = async (userId: string): Promise<Profile | null> => {
-    try {
-      console.log(`[Auth] Fetching profile for user: ${userId}`)
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-
-      if (error) {
-        if (error.code === '401' || error.message?.includes('JWT')) {
-          console.warn('[Auth] Session 401 during profile fetch. Clearing token.')
-          signOut()
-        } else if (error.code !== 'PGRST116') {
-          console.error('[Auth] Profile fetch error:', error)
-        }
-        return null
-      }
-      return data as Profile
-    } catch (err) {
-      console.error('[Auth] Unexpected profile error:', err)
-      return null
-    }
-  }
-
-  const refreshProfile = async () => {
-    if (state.user) {
-      setState((prev) => ({ ...prev, loading: true }))
-      const profile = await fetchProfileData(state.user.id)
-      setState((prev) => ({ ...prev, profile, loading: false }))
-    }
-  }
-
-  const hardReset = () => {
-    console.warn('[Auth] PERFORMING HARD RESET - Clearing all auth storage')
-
-    // Wipe all Supabase-related keys from localStorage
-    Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith('sb-') || key.includes('supabase.auth.token')) {
-        localStorage.removeItem(key)
-      }
-    })
-
-    // Clear state locally
-    setState({ user: null, profile: null, loading: false, error: null })
-
-    // Redirect to login with a hard reload
-    window.location.href = '/login'
-  }
+  // -------------------------------------------------------------------------
+  // signOut
+  // -------------------------------------------------------------------------
 
   const signOut = async () => {
-    console.log('[Auth] Signing out...')
     try {
       await supabase.auth.signOut()
-    } finally {
-      setState({ user: null, profile: null, loading: false, error: null })
+    } catch (err) {
+      console.error('[Auth] signOut error:', err)
+    }
+    // onAuthStateChange will fire SIGNED_OUT and update state for us.
+    // We don't need to manually setState here — keeping state in sync with
+    // the single source of truth.
+  }
 
-      // Clean up specific storage keys
-      try {
-        const url = import.meta.env.VITE_SUPABASE_URL
-        if (url) {
-          const storageKey = 'sb-' + new URL(url).hostname + '-auth-token'
-          localStorage.removeItem(storageKey)
-        }
-      } catch (e) {
-        // Ignore parsing errors
-      }
+  // -------------------------------------------------------------------------
+  // refreshProfile
+  // -------------------------------------------------------------------------
+
+  const refreshProfile = async () => {
+    if (!mountedRef.current) return
+
+    const currentUser = state.user
+    if (!currentUser) return
+
+    const profile = await fetchProfile(currentUser.id)
+
+    if (mountedRef.current) {
+      setState((prev) => ({ ...prev, profile }))
     }
   }
 
+  // -------------------------------------------------------------------------
+  // hardReset
+  // -------------------------------------------------------------------------
+
+  const hardReset = () => {
+    clearSupabaseStorage()
+    window.location.reload()
+  }
+
+  // -------------------------------------------------------------------------
+  // Auth listener — single source of truth
+  //
+  // onAuthStateChange fires synchronously with event = 'INITIAL_SESSION'
+  // on subscriber registration when a persisted session exists, or with
+  // session = null when there is no session.  No separate getSession() call
+  // is needed and doing so creates a race condition.
+  // -------------------------------------------------------------------------
+
   useEffect(() => {
-    let timeoutId: ReturnType<typeof setTimeout>
+    mountedRef.current = true
+    initResolvedRef.current = false
 
-    const handleInitialAuth = async () => {
-      console.log('[Auth] Initializing authentication...')
+    const applySession = async (session: Session | null) => {
+      if (!mountedRef.current) return
 
-      // 0. Configuration check
-      if (!isSupabaseConfigured) {
-        console.error('[Auth] Supabase URL or Anon Key is missing!')
+      const user = session?.user ?? null
+
+      if (!user) {
+        initResolvedRef.current = true
         setState({
           user: null,
           profile: null,
           loading: false,
-          error: 'Missing Supabase configuration. Please check your environment variables.',
+          error: null,
         })
-        isInitialized.current = true
         return
       }
 
-      // 1. Debug Logs
-      console.log('[Auth Debug] localStorage keys:', Object.keys(localStorage))
+      const profile = await withTimeout(
+        fetchProfile(user.id),
+        PROFILE_FETCH_TIMEOUT_MS,
+        null
+      )
 
-      // 2. Set safety timeout
-      timeoutId = setTimeout(() => {
-        if (!isInitialized.current) {
-          console.warn('[Auth] Initialization timed out. Forcing state reset.')
-          setState({
-            user: null,
-            profile: null,
-            loading: false,
-            error: null,
-          })
-          isInitialized.current = true
-        }
-      }, AUTH_TIMEOUT_MS)
+      if (!mountedRef.current) return
+
+      initResolvedRef.current = true
+      setState({
+        user,
+        profile,
+        loading: false,
+        error: null,
+      })
+    }
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mountedRef.current) return
+      await applySession(session)
+    })
+
+    // Fallback for edge cases where INITIAL_SESSION does not resolve promptly
+    // on certain environments/domains and the app appears stuck on loading.
+    const fallbackTimer = window.setTimeout(async () => {
+      if (!mountedRef.current || initResolvedRef.current) return
 
       try {
-        console.log('[Auth] Restoring session...')
-        const { data, error: sessionError } = await supabase.auth.getSession()
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
 
-        if (sessionError) throw sessionError
-
-        let session = data?.session
-
-        // Fallback: force refresh session if null
-        if (!session) {
-          console.warn('[Auth] No session found via getSession, attempting refresh fallback...')
-          const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession()
-          if (!refreshError && refreshed?.session) {
-            console.log('[Auth] Session restored via refresh fallback')
-            session = refreshed.session
-          }
-        }
-
-        console.log('[Auth Debug] Final Session:', session)
-
-        if (isInitialized.current) return // Already timed out
-
-        const user = session?.user ?? null
-        let profile = null
-
-        if (user) {
-          console.log(`[Auth] User detected: ${user.email}`)
-          profile = await fetchProfileData(user.id)
-        } else {
-          console.log('[Auth] No active session found')
-        }
-
-        setState({ user, profile, loading: false, error: null })
-        console.log('[Auth] Initialization check complete')
+        if (!mountedRef.current || initResolvedRef.current) return
+        await applySession(session)
       } catch (err) {
-        console.error('[Auth] Critical initialization failure:', err)
+        if (!mountedRef.current || initResolvedRef.current) return
+
+        console.error('[Auth] Fallback session resolution failed:', err)
+        initResolvedRef.current = true
         setState({
           user: null,
           profile: null,
           loading: false,
-          error: err instanceof Error ? err.message : 'Authentication failed',
+          error: null,
         })
-      } finally {
-        isInitialized.current = true
-        if (timeoutId) clearTimeout(timeoutId)
       }
-    }
+    }, 4000)
 
-    handleInitialAuth()
+    // Absolute safety net: never keep the app in auth loading forever.
+    const hardTimeout = window.setTimeout(async () => {
+      if (!mountedRef.current || initResolvedRef.current) return
 
-    if (!isSupabaseConfigured) return
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
-      console.log(`[Auth Event] ${event}`)
+        if (!mountedRef.current || initResolvedRef.current) return
 
-      // We process ALL events to ensure we never lose the first valid session update.
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        const user = session?.user ?? null
-        const profile = user ? await fetchProfileData(user.id) : null
-        setState({ user, profile, loading: false, error: null })
-      } else if (event === 'SIGNED_OUT') {
-        setState({ user: null, profile: null, loading: false, error: null })
+        initResolvedRef.current = true
+        setState({
+          user: session?.user ?? null,
+          profile: null,
+          loading: false,
+          error: null,
+        })
+      } catch {
+        if (!mountedRef.current || initResolvedRef.current) return
+        initResolvedRef.current = true
+        setState({
+          user: null,
+          profile: null,
+          loading: false,
+          error: null,
+        })
       }
-    })
+    }, AUTH_HARD_TIMEOUT_MS)
 
     return () => {
+      mountedRef.current = false
+      window.clearTimeout(fallbackTimer)
+      window.clearTimeout(hardTimeout)
       subscription.unsubscribe()
       if (timeoutId) clearTimeout(timeoutId)
     }
   }, [])
 
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
+
   return (
-    <AuthContext.Provider value={{ ...state, signOut, hardReset, refreshProfile }}>
+    <AuthContext.Provider
+      value={{
+        ...state,
+        signOut,
+        refreshProfile,
+        hardReset,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )
