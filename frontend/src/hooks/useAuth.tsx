@@ -472,54 +472,64 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return
       }
 
-      if (!recovery.session) {
-        const shouldClearStorage = recovery.failures.some((failure) => looksLikeAuthFailure(failure))
+      // 1. Debug Logs (Task 4)
+      console.log('[Auth Debug] localStorage keys:', Object.keys(localStorage))
 
-        if (shouldClearStorage) {
-          console.warn('[Auth] Clearing stale persisted auth after failed recovery.', {
-            reason,
-            failures: recovery.failures,
-          })
-          clearSupabaseAuthStorage()
-        }
-
-        resolveAuthState(
-          {
+      // 2. Set safety timeout (Task 3)
+      timeoutId = setTimeout(() => {
+        if (!isInitialized.current) {
+          console.warn('[Auth] Initialization timed out. Forcing state reset.')
+          setState({
             user: null,
             profile: null,
-            error: null,
-          },
-          `${reason}:no-session`,
-          runId
-        )
-        return
-      }
+            loading: false,
+            error: null
+          })
+          isInitialized.current = true
+        }
 
-      const profileResult = await fetchProfileData(recovery.session.user.id)
+      try {
+        console.log('[Auth] Restoring session...')
+        const { data, error: sessionError } = await supabase.auth.getSession()
+        
+        if (sessionError) throw sessionError
+        
+        let session = data?.session
 
-      if (runId !== authRunIdRef.current) {
-        console.info('[Auth] Ignoring stale profile result.', {
-          reason,
-          runId,
-          currentRunId: authRunIdRef.current,
-        })
-        return
-      }
+        // Fallback: force refresh session if null (Task 2)
+        if (!session) {
+          console.warn('[Auth] No session found via getSession, attempting refresh fallback...')
+          const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession()
+          if (!refreshError && refreshed?.session) {
+            console.log('[Auth] Session restored via refresh fallback')
+            session = refreshed.session
+          }
+        }
 
-      if (profileResult.shouldForceLogout) {
-        console.warn('[Auth] Profile fetch proved the session is invalid. Forcing logout.', {
-          reason,
-          failureReason: profileResult.failureReason,
-        })
+        console.log('[Auth Debug] Final Session:', session)
 
-        await performClientSignOut(profileResult.failureReason || `${reason}:invalid-session`)
-        return
-      }
+        if (isInitialized.current) return // Already timed out
 
-      if (profileResult.failureReason) {
-        console.warn('[Auth] Continuing with authenticated user but without a loaded profile.', {
-          reason,
-          failureReason: profileResult.failureReason,
+        const user = session?.user ?? null
+        let profile = null
+        
+        if (user) {
+          console.log(`[Auth] User detected: ${user.email}`)
+          profile = await fetchProfileData(user.id)
+        } else {
+          console.log('[Auth] No active session found')
+        }
+        
+        setState({ user, profile, loading: false, error: null })
+        console.log('[Auth] Initialization check complete')
+        
+      } catch (err) {
+        console.error('[Auth] Critical initialization failure:', err)
+        setState({ 
+          user: null, 
+          profile: null, 
+          loading: false, 
+          error: err instanceof Error ? err.message : 'Authentication failed'
         })
       }
 
@@ -566,7 +576,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return
     }
 
-    const profileResult = await fetchProfileData(currentUser.id)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event: AuthChangeEvent, session: Session | null) => {
+        console.log(`[Auth Event] ${event}`)
+        
+        // Task 1: REMOVED the INITIAL_SESSION skip logic.
+        // We now process ALL events to ensure we never lose the first valid session update.
 
     if (profileResult.shouldForceLogout) {
       await performClientSignOut(profileResult.failureReason || 'refresh-profile-invalid-session')
