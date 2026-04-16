@@ -1,30 +1,48 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/hooks/useAuth'
 import { Link, useNavigate } from 'react-router-dom'
-import { GraduationCap, Loader2 } from 'lucide-react'
+import { GraduationCap, Loader2, AlertCircle } from 'lucide-react'
 
 export default function LoginPage() {
+  const { hardReset } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showTrouble, setShowTrouble] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>
+    if (loading) {
+      timer = setTimeout(() => setShowTrouble(true), 6000)
+    } else {
+      setShowTrouble(false)
+    }
+    return () => clearTimeout(timer)
+  }, [loading])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-    if (error) {
-      setError(error.message)
+      if (error) {
+        setError(error.message)
+        setLoading(false)
+      } else {
+        navigate('/')
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again or reset your session.')
       setLoading(false)
-    } else {
-      navigate('/')
     }
   }
 
@@ -108,6 +126,25 @@ export default function LoginPage() {
                 Sign up
               </Link>
             </p>
+
+            {showTrouble && (
+              <div className="animate-in fade-in slide-in-from-top-2 flex flex-col items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-4 text-center duration-500">
+                <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--text-primary)]">
+                  <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
+                  Still processing?
+                </div>
+                <p className="text-[11px] text-[var(--text-secondary)]">
+                  If the login hangs, your browser session might be stale.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => hardReset()}
+                  className="mt-1 text-[11px] font-bold text-[var(--accent)] underline-offset-4 hover:underline"
+                >
+                  Clear Session & Try Again
+                </button>
+              </div>
+            )}
           </form>
         </div>
       </div>

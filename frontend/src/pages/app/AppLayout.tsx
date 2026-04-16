@@ -62,7 +62,7 @@ function AppShellFrame() {
 }
 
 export default function AppLayout() {
-  const { user, profile, loading, signOut, error: authError } = useAuth()
+  const { user, profile, loading, signOut, hardReset, error: authError } = useAuth()
   const navigate = useNavigate()
   const [showRecovery, setShowRecovery] = useState(false)
 
@@ -102,10 +102,10 @@ export default function AppLayout() {
                   This is taking longer than usual. There might be a connection issue or a stale session.
                 </p>
                 <button
-                  onClick={() => signOut()}
+                  onClick={() => hardReset()}
                   className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[var(--bg-elevated)] px-4 py-2 text-[12px] font-semibold text-[var(--text-primary)] transition-all hover:bg-[var(--bg-hover)] active:scale-95"
                 >
-                  Reset Session & Sign Out
+                  Deep Clean & Reset Session
                 </button>
               </div>
             )}
