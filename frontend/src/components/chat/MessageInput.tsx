@@ -17,6 +17,7 @@ interface MessageInputProps {
   onTyping: () => void
   replyingTo?: Message | null
   onCancelReply?: () => void
+  placeholder?: string
 }
 
 export default function MessageInput({
@@ -24,6 +25,7 @@ export default function MessageInput({
   onTyping,
   replyingTo,
   onCancelReply,
+  placeholder = 'Message the room…',
 }: MessageInputProps) {
   const [content, setContent] = useState('')
   const [isFocused, setIsFocused] = useState(false)
@@ -147,7 +149,7 @@ export default function MessageInput({
               contentEditable
               role="textbox"
               aria-multiline="true"
-              data-placeholder="Message the room…"
+              data-placeholder={placeholder}
               className="relative min-h-[36px] max-h-36 overflow-y-auto rounded-[var(--radius-sm)] px-1 py-1 text-[var(--msg-font-size)] leading-[1.6] text-[var(--text-primary)] outline-none before:pointer-events-none before:absolute before:text-[var(--text-muted)] empty:before:content-[attr(data-placeholder)]"
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}

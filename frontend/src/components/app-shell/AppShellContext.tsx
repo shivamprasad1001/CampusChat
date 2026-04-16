@@ -14,6 +14,10 @@ interface AppShellContextValue {
   searchQuery: string
   setSearchQuery: (query: string) => void
   focusSearch: () => void
+  activeThreadId: string | null
+  threadPanelOpen: boolean
+  openThread: (messageId: string) => void
+  closeThread: () => void
 }
 
 const AppShellContext = createContext<AppShellContextValue | null>(null)
@@ -23,12 +27,24 @@ export function AppShellProvider({ children }: { children: React.ReactNode }) {
   const [membersPanelOpen, setMembersPanelOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
+  const [threadPanelOpen, setThreadPanelOpen] = useState(false)
 
   const focusSearch = () => {
     const input = document.getElementById('room-search-input') as HTMLInputElement
     if (input) {
       input.focus()
     }
+  }
+
+  const openThread = (messageId: string) => {
+    setActiveThreadId(messageId)
+    setThreadPanelOpen(true)
+  }
+
+  const closeThread = () => {
+    setActiveThreadId(null)
+    setThreadPanelOpen(false)
   }
 
   const value = useMemo(
@@ -45,8 +61,12 @@ export function AppShellProvider({ children }: { children: React.ReactNode }) {
       searchQuery,
       setSearchQuery,
       focusSearch,
+      activeThreadId,
+      threadPanelOpen,
+      openThread,
+      closeThread
     }),
-    [membersPanelOpen, mobileSidebarOpen, settingsOpen, searchQuery]
+    [membersPanelOpen, mobileSidebarOpen, settingsOpen, searchQuery, activeThreadId, threadPanelOpen]
   )
 
   return <AppShellContext.Provider value={value}>{children}</AppShellContext.Provider>

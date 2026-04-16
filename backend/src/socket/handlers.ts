@@ -69,6 +69,7 @@ export function setupSocketHandlers(io: Server) {
     });
 
     socket.on('send_message', async ({ roomId, content, fileUrl, userId, parentId }: SendMessagePayload) => {
+      // 1. Insert message
       const { data: message, error } = await supabase
         .from('messages')
         .insert({
@@ -80,8 +81,8 @@ export function setupSocketHandlers(io: Server) {
         })
         .select(`
           *,
-          profiles:sender_id(name, avatar_url),
-          parent:parent_id(id, content, sender_id, profiles:sender_id(name))
+          profiles:sender_id(name, avatar_url, username),
+          parent:parent_id(id, content, sender_id, is_deleted, profiles:sender_id(name, username))
         `)
         .single();
 
@@ -89,6 +90,35 @@ export function setupSocketHandlers(io: Server) {
         console.error('[Socket] send_message error:', error);
       } else if (message) {
         io.to(roomId).emit('new_message', message);
+
+        // 2. Handle Threads: If it's a reply, increment parent's reply_count
+        if (parentId) {
+          try {
+            const { data: parent } = await supabase
+              .from('messages')
+              .select('reply_count')
+              .eq('id', parentId)
+              .single();
+            
+            if (parent) {
+              await supabase
+                .from('messages')
+                .update({ reply_count: (parent.reply_count || 0) + 1 })
+                .eq('id', parentId);
+              
+              // Notify subscribers that a reply was added (useful for thread indicators)
+              io.to(roomId).emit('reply_added', { parentId, newCount: (parent.reply_count || 0) + 1 });
+            }
+          } catch (err) {
+            console.error('[Socket] Thread count increment error:', err);
+          }
+        }
+
+        // 3. Handle Mentions
+        const mentions = parseMentions(content);
+        if (mentions.length > 0) {
+          handleMentions(mentions, message.id, roomId, userId, io);
+        }
       }
     });
 
@@ -161,7 +191,7 @@ export function setupSocketHandlers(io: Server) {
           .update({ content, edited: true })
           .eq('id', messageId)
           .eq('sender_id', userId) // Enforce ownership
-          .select('*, profiles(name, avatar_url)')
+          .select('*, profiles(name, avatar_url, username)')
           .single();
 
         if (error) throw error;
@@ -173,19 +203,77 @@ export function setupSocketHandlers(io: Server) {
 
     socket.on('delete_message', async ({ messageId, roomId, userId }: DeleteMessagePayload) => {
       try {
-        // We delete the message outright from db
-        const { error } = await supabase
+        // Soft delete: keep the row, but nullify content and flag it
+        const { data: message, error } = await supabase
           .from('messages')
-          .delete()
+          .update({ 
+            is_deleted: true, 
+            deleted_at: new Date().toISOString(),
+            content: null,
+            file_url: null,
+            file_type: null
+          })
           .eq('id', messageId)
-          .eq('sender_id', userId);
+          .eq('sender_id', userId)
+          .select('id, room_id, sender_id')
+          .single();
 
         if (error) throw error;
-        io.to(roomId).emit('message_deleted', { messageId });
+        io.to(roomId).emit('message_deleted', { messageId, roomId });
       } catch (err) {
         console.error('[Socket] delete_message error:', err);
       }
     });
+
+function parseMentions(content: string): string[] {
+  const mentionRegex = /@([a-zA-Z0-9_]+)/g;
+  const matches = content.match(mentionRegex);
+  if (!matches) return [];
+  // Remove the '@' prefix and return unique usernames
+  return Array.from(new Set(matches.map(m => m.substring(1).toLowerCase())));
+}
+
+async function handleMentions(usernames: string[], messageId: string, roomId: string, senderId: string, io: Server) {
+  try {
+    // 1. Get user IDs for these usernames
+    const { data: profiles, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, username')
+      .in('username', usernames);
+
+    if (profileError || !profiles) return;
+
+    // 2. Filter out the sender (can't mention yourself for notifications)
+    const targetProfiles = profiles.filter(p => p.id !== senderId);
+    if (targetProfiles.length === 0) return;
+
+    // 3. Insert notifications
+    const notifications = targetProfiles.map(p => ({
+      user_id: p.id,
+      sender_id: senderId,
+      message_id: messageId,
+      room_id: roomId,
+      type: 'mention'
+    }));
+
+    const { data: inserted, error: notifError } = await supabase
+      .from('notifications')
+      .insert(notifications)
+      .select('*, profiles:sender_id(name, avatar_url, username)');
+
+    if (notifError || !inserted) return;
+
+    // 4. Emit real-time notification to specific users
+    // We assuming user is in a private 'user:userId' room or similar
+    // For now, we emit to the general Room but frontend will filter
+    inserted.forEach(notif => {
+      io.emit(`new_notification:${notif.user_id}`, notif);
+    });
+
+  } catch (err) {
+    console.error('[Socket] handleMentions error:', err);
+  }
+}
 
     socket.on('disconnect', () => {
       const info = socketToUser.get(socket.id);

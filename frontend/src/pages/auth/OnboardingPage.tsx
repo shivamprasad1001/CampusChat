@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { GraduationCap, Loader2, Sparkles } from 'lucide-react'
 
 export default function OnboardingPage() {
-  const { profile } = useAuth()
+  const { profile, refreshProfile } = useAuth()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -16,6 +16,7 @@ export default function OnboardingPage() {
     year: ''
   })
 
+  // Success handler move to navigate('/') only after manual form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -25,6 +26,11 @@ export default function OnboardingPage() {
         ...formData,
         year: parseInt(formData.year) || undefined
       })
+      
+      // Refresh the global auth profile so AppLayout sees the new data
+      await refreshProfile()
+      
+      // After manual onboarding, go to the dashboard
       navigate('/')
     } catch (err) {
       console.error('Failed to save profile', err)

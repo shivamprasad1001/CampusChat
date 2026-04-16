@@ -8,6 +8,7 @@ export interface Profile {
   department?: string;
   year?: number;
   avatar_url?: string;
+  username?: string;
   created_at: string;
 }
 
@@ -41,6 +42,9 @@ export interface Message {
   edited: boolean;
   is_pinned?: boolean;
   parent_id?: string;
+  is_deleted?: boolean;
+  deleted_at?: string;
+  reply_count?: number;
   created_at: string;
   profiles?: Profile;
   reactions?: Reaction[];
@@ -48,6 +52,7 @@ export interface Message {
     id: string;
     content: string;
     sender_id: string;
+    is_deleted?: boolean;
     profiles?: Profile;
   };
 }
