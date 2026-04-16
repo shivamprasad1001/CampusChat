@@ -12,6 +12,7 @@ import {
   Users,
   Plus,
 } from 'lucide-react'
+import NotificationBell from '@/components/layout/NotificationBell'
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import api from '@/lib/api'
@@ -175,6 +176,7 @@ export default function RoomPage() {
             <HeaderIconButton label="Pinned messages" className="hidden sm:flex">
               <Pin className="h-3.5 w-3.5" strokeWidth={1.7} />
             </HeaderIconButton>
+            <NotificationBell />
             <HeaderIconButton
               label="Members"
               onClick={toggleMembersPanel}

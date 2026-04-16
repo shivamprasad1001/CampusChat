@@ -3,7 +3,8 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import api from '@/lib/api'
 import { Message } from '@/types'
-import { io, Socket } from 'socket.io-client'
+import { getSocket } from '@/lib/socket'
+import { Socket } from 'socket.io-client'
 import { RealtimePostgresInsertPayload } from '@supabase/supabase-js'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -31,9 +32,15 @@ export function useMessages(roomId: string) {
     fetchHistory()
 
     // 2. Setup Socket.IO
-    const s = io(import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000')
+    const s = getSocket(user?.id)
     socketRef.current = s
 
+    const onConnect = () => {
+      console.log('[Socket] Reconnected, re-joining room:', roomId)
+      s.emit('join_room', { roomId, userId: user?.id })
+    }
+
+    s.on('connect', onConnect)
     s.emit('join_room', { roomId, userId: user?.id })
 
     s.on('new_message', (message: Message) => {
@@ -74,7 +81,15 @@ export function useMessages(roomId: string) {
     })
 
     s.on('message_deleted', ({ messageId }) => {
-      setMessages((prev) => prev.filter(m => m.id !== messageId))
+      setMessages((prev) => prev.map(m => 
+        m.id === messageId ? { ...m, is_deleted: true, content: undefined, file_url: undefined } : m
+      ))
+    })
+
+    s.on('reply_added', ({ parentId, newCount }) => {
+      setMessages((prev) => prev.map(m => 
+        m.id === parentId ? { ...m, reply_count: newCount } : m
+      ))
     })
 
     // 3. Supabase Realtime Fallback
@@ -95,7 +110,16 @@ export function useMessages(roomId: string) {
       .subscribe()
 
     return () => {
-      s.disconnect()
+      s.off('connect', onConnect)
+      s.off('new_message')
+      s.off('room_users')
+      s.off('message_pinned')
+      s.off('user_typing')
+      s.off('reaction_update')
+      s.off('message_edited')
+      s.off('message_deleted')
+      s.off('reply_added')
+      
       socketRef.current = null
       supabase.removeChannel(channel)
     }

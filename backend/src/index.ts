@@ -12,6 +12,7 @@ import messagesRoutes from './routes/messages.js';
 import uploadRoutes from './routes/upload.js';
 import dmRoutes from './routes/dm.js';
 import reactionsRoutes from './routes/reactions.js';
+import notificationsRoutes from './routes/notifications.js';
 
 dotenv.config();
 
@@ -94,6 +95,7 @@ app.use('/messages', messagesRoutes);
 app.use('/upload', uploadRoutes);
 app.use('/dm', dmRoutes);
 app.use('/reactions', reactionsRoutes);
+app.use('/notifications', notificationsRoutes);
 
 // Error handling
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

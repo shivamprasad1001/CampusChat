@@ -5,26 +5,30 @@ import { useNavigate, Outlet } from 'react-router-dom'
 import { useEffect } from 'react'
 import { AppShellProvider, useAppShell } from '@/components/app-shell/AppShellContext'
 import { PanelLeftClose } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import ThreadPanel from '@/components/chat/ThreadPanel'
 
 function AppShellFrame() {
-  const { mobileSidebarOpen, setMobileSidebarOpen, settingsOpen, closeSettings } = useAppShell()
+  const { mobileSidebarOpen, setMobileSidebarOpen, settingsOpen, closeSettings, threadPanelOpen } = useAppShell()
 
   return (
     <div className="app-shell flex h-[100dvh] overflow-hidden text-[var(--text-primary)]">
       {/* Mobile sidebar backdrop */}
       <div
-        className={`fixed inset-0 z-40 bg-black/50 backdrop-blur-[6px] transition-opacity duration-300 md:hidden ${
+        className={cn(
+          "fixed inset-0 z-40 bg-black/50 backdrop-blur-[6px] transition-opacity duration-300 md:hidden",
           mobileSidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
-        }`}
+        )}
         onClick={() => setMobileSidebarOpen(false)}
         aria-hidden="true"
       />
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-[272px] max-w-[88vw] transform border-r border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-[var(--shadow-xl)] transition-transform duration-300 ease-[var(--ease-spring)] md:static md:z-auto md:w-[248px] md:translate-x-0 md:shadow-none ${
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 w-[272px] max-w-[88vw] transform border-r border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-[var(--shadow-xl)] transition-transform duration-300 ease-[var(--ease-spring)] md:static md:z-auto md:w-[248px] md:translate-x-0 md:shadow-none",
           mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        )}
       >
         <div className="flex h-full flex-col">
           {/* Mobile close button */}
@@ -42,10 +46,14 @@ function AppShellFrame() {
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
-        <Outlet />
-      </main>
+      {/* Main content + Thread panel */}
+      <div className="flex flex-1 overflow-hidden">
+        <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+          <Outlet />
+        </main>
+        
+        {threadPanelOpen && <ThreadPanel />}
+      </div>
 
       {/* Settings Modal */}
       <UserSettingsModal open={settingsOpen} onClose={closeSettings} />
@@ -62,7 +70,7 @@ export default function AppLayout() {
 
     if (!user) {
       navigate('/login')
-    } else if (!profile || !profile.department || !profile.year) {
+    } else if (!profile || !profile.department || profile.year === undefined || profile.year === null) {
       navigate('/onboarding')
     }
   }, [user, profile, loading, navigate])
