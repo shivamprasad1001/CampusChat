@@ -51,7 +51,7 @@ function AppShellFrame() {
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
           <Outlet />
         </main>
-        
+
         {threadPanelOpen && <ThreadPanel />}
       </div>
 
@@ -68,8 +68,10 @@ export default function AppLayout() {
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
+    // We only show recovery UI if we are stuck LOADING with no profile 
+    // OR if we have been loading for a very long time (> 8s)
     if (loading && !authError) {
-      timer = setTimeout(() => setShowRecovery(true), 5000)
+      timer = setTimeout(() => setShowRecovery(true), 8000)
     } else {
       setShowRecovery(false)
     }
@@ -81,19 +83,22 @@ export default function AppLayout() {
 
     if (!user) {
       navigate('/login')
-    } else if (!profile || !profile.department || profile.year === undefined || profile.year === null) {
+    } else if (profile && (!profile.department || profile.year === undefined || profile.year === null)) {
       navigate('/onboarding')
     }
   }, [user, profile, loading, authError, navigate])
 
-  if (loading || authError) {
+  // Only block the screen while user/session is unresolved.
+  // If we already have a user, allow the app shell to render even if
+  // profile hydration is delayed to avoid refresh "loading loops".
+  if ((loading && !user) || authError) {
     return (
       <div className="app-shell flex min-h-[100dvh] flex-col items-center justify-center gap-6 p-6">
         {!authError ? (
           <>
-            <div className="glass-panel flex min-w-[240px] items-center gap-3 rounded-[var(--radius-lg)] px-5 py-4 text-[var(--text-secondary)] shadow-[var(--shadow-lg)]">
+            <div className="glass-panel animate-in fade-in zoom-in-95 flex min-w-[240px] items-center gap-3 rounded-[var(--radius-lg)] px-5 py-4 text-[var(--text-secondary)] shadow-[var(--shadow-lg)] duration-500">
               <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--accent)]" />
-              <span className="font-medium">Loading your workspace…</span>
+              <span className="font-medium italic">Preparing your workspace…</span>
             </div>
 
             {showRecovery && (
@@ -113,7 +118,7 @@ export default function AppLayout() {
         ) : (
           <div className="animate-in zoom-in-95 flex flex-col items-center gap-4 text-center duration-500">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10 text-red-500 shadow-[0_0_20px_rgba(239,68,68,0.15)]">
-              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>
             </div>
             <div className="space-y-2">
               <h2 className="text-xl font-bold text-[var(--text-primary)]">Configuration Error</h2>
@@ -137,7 +142,10 @@ export default function AppLayout() {
     )
   }
 
-  if (!user) return null
+  // If we have a profile (cached or fresh), but no user object yet, 
+  // it might be a stale cache or rehydrating session. 
+  // We'll let the skeleton render and RootPage handle the login redirect if it fails.
+  if (loading && !user && !profile) return null
 
   return (
     <AppShellProvider>
