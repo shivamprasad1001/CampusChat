@@ -128,38 +128,57 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return
       }
 
-      // 1. Direct Token Check (Hint for mobile browsers)
-      const hasPotentialToken = Object.keys(localStorage).some(key => key.startsWith('sb-'))
-      console.log(`[Auth] Persistent storage check: ${hasPotentialToken ? 'TOKEN FOUND' : 'NO TOKEN'}`)
+      // 1. Debug Logs (Task 4)
+      console.log('[Auth Debug] localStorage keys:', Object.keys(localStorage))
 
-      // 2. Set safety timeout
+      // 2. Set safety timeout (Task 3)
       timeoutId = setTimeout(() => {
         if (!isInitialized.current) {
-          console.warn('[Auth] Initialization timed out. Clearing loading screen for safety.')
-          setState(prev => ({ ...prev, loading: false }))
+          console.warn('[Auth] Initialization timed out. Forcing state reset.')
+          setState({
+            user: null,
+            profile: null,
+            loading: false,
+            error: null
+          })
           isInitialized.current = true
         }
       }, AUTH_TIMEOUT_MS)
 
       try {
         console.log('[Auth] Restoring session...')
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        const { data, error: sessionError } = await supabase.auth.getSession()
         
         if (sessionError) throw sessionError
+        
+        let session = data?.session
+
+        // Fallback: force refresh session if null (Task 2)
+        if (!session) {
+          console.warn('[Auth] No session found via getSession, attempting refresh fallback...')
+          const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession()
+          if (!refreshError && refreshed?.session) {
+            console.log('[Auth] Session restored via refresh fallback')
+            session = refreshed.session
+          }
+        }
+
+        console.log('[Auth Debug] Final Session:', session)
+
         if (isInitialized.current) return // Already timed out
 
         const user = session?.user ?? null
         let profile = null
         
         if (user) {
-          console.log(`[Auth] Session restored for user: ${user.email}`)
+          console.log(`[Auth] User detected: ${user.email}`)
           profile = await fetchProfileData(user.id)
         } else {
           console.log('[Auth] No active session found')
         }
         
         setState({ user, profile, loading: false, error: null })
-        console.log('[Auth] Initialization complete')
+        console.log('[Auth] Initialization check complete')
         
       } catch (err) {
         console.error('[Auth] Critical initialization failure:', err)
@@ -181,10 +200,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
-        console.log(`[Auth] Event: ${event}`)
+        console.log(`[Auth Event] ${event}`)
         
-        // Skip initial session event if we already handled it in handleInitialAuth
-        if (!isInitialized.current && event === 'INITIAL_SESSION') return
+        // Task 1: REMOVED the INITIAL_SESSION skip logic.
+        // We now process ALL events to ensure we never lose the first valid session update.
 
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
           const user = session?.user ?? null
