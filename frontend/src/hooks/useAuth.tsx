@@ -1,5 +1,5 @@
 
-import { useEffect, useState, createContext, useContext } from 'react'
+import { useEffect, useState, createContext, useContext, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { User, AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { Profile } from '@/types'
@@ -23,12 +23,16 @@ const AuthContext = createContext<AuthContextType>({
   refreshProfile: async () => {}
 })
 
+const AUTH_TIMEOUT_MS = 8000 // 8 seconds safety timeout
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, setState] = useState<AuthState>({
     user: null,
     profile: null,
     loading: true
   })
+  
+  const isInitialized = useRef(false)
 
   const fetchProfileData = async (userId: string): Promise<Profile | null> => {
     try {
@@ -39,14 +43,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .single()
       
       if (error) {
-        if (error.code !== 'PGRST116') { // PGRST116 is 'no rows returned'
-          console.error('[Auth] Error fetching profile:', error)
+        if (error.code !== 'PGRST116') {
+          console.error('[Auth] Profile fetch error:', error)
         }
         return null
       }
       return data as Profile
     } catch (err) {
-      console.error('[Auth] Unexpected error:', err)
+      console.error('[Auth] Unexpected profile error:', err)
       return null
     }
   }
@@ -59,31 +63,58 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }
 
+  const signOut = async () => {
+    try {
+      await supabase.auth.signOut()
+    } finally {
+      setState({ user: null, profile: null, loading: false })
+      // Clear any remaining local storage to be absolutely sure
+      localStorage.removeItem('sb-' + import.meta.env.VITE_SUPABASE_URL + '-auth-token')
+    }
+  }
+
   useEffect(() => {
-    // 1. Initial manual check to avoid race conditions on mount
-    const initAuth = async () => {
+    let timeoutId: NodeJS.Timeout
+
+    const handleInitialAuth = async () => {
+      // Set safety timeout
+      timeoutId = setTimeout(() => {
+        if (!isInitialized.current) {
+          console.warn('[Auth] Initialization timed out after 8s. Forcing loading screen to clear.')
+          setState(prev => ({ ...prev, loading: false }))
+          isInitialized.current = true
+        }
+      }, AUTH_TIMEOUT_MS)
+
       try {
         const { data: { session } } = await supabase.auth.getSession()
+        if (isInitialized.current) return // Already timed out
+
         const user = session?.user ?? null
         let profile = null
-        
         if (user) {
           profile = await fetchProfileData(user.id)
         }
         
         setState({ user, profile, loading: false })
+        isInitialized.current = true
+        clearTimeout(timeoutId)
       } catch (err) {
-        console.error('[Auth] Initialization error:', err)
+        console.error('[Auth] Initial check failed:', err)
         setState(prev => ({ ...prev, loading: false }))
+        isInitialized.current = true
+        clearTimeout(timeoutId)
       }
     }
 
-    initAuth()
+    handleInitialAuth()
 
-    // 2. Listener for subsequent changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
-        // We only trigger re-fetches on specific events to avoid redundant renders
+        // Skip if we're doing the initial load through handleInitialAuth
+        // unless it's a definite change event
+        if (!isInitialized.current && event === 'INITIAL_SESSION') return
+
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
           const user = session?.user ?? null
           const profile = user ? await fetchProfileData(user.id) : null
@@ -94,13 +125,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+      if (timeoutId) clearTimeout(timeoutId)
+    }
   }, [])
-
-  const signOut = async () => {
-    await supabase.auth.signOut()
-    setState({ user: null, profile: null, loading: false })
-  }
 
   return (
     <AuthContext.Provider value={{ ...state, signOut, refreshProfile }}>
