@@ -2,7 +2,7 @@ import { useAuth } from '@/hooks/useAuth'
 import Sidebar from '@/components/sidebar/Sidebar'
 import UserSettingsModal from '@/components/settings/UserSettingsModal'
 import { useNavigate, Outlet } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { AppShellProvider, useAppShell } from '@/components/app-shell/AppShellContext'
 import { PanelLeftClose } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -67,7 +67,7 @@ export default function AppLayout() {
   const [showRecovery, setShowRecovery] = useState(false)
 
   useEffect(() => {
-    let timer: NodeJS.Timeout
+    let timer: ReturnType<typeof setTimeout>
     if (loading) {
       timer = setTimeout(() => setShowRecovery(true), 5000)
     } else {
