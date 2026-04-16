@@ -89,9 +89,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       await supabase.auth.signOut()
     } finally {
-      // Clear state and specific storage key
       setState({ user: null, profile: null, loading: false, error: null })
       
+      // Safe cleanup of local storage
       try {
         const url = import.meta.env.VITE_SUPABASE_URL
         if (url) {
