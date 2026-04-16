@@ -1,6 +1,6 @@
 
 import { useEffect, useState, createContext, useContext, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import { User, AuthChangeEvent, Session } from '@supabase/supabase-js'
 import { Profile } from '@/types'
 
@@ -8,6 +8,7 @@ interface AuthState {
   user: User | null
   profile: Profile | null
   loading: boolean
+  error: string | null
 }
 
 interface AuthContextType extends AuthState {
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   loading: true,
+  error: null,
   signOut: async () => {},
   refreshProfile: async () => {}
 })
@@ -29,7 +31,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [state, setState] = useState<AuthState>({
     user: null,
     profile: null,
-    loading: true
+    loading: true,
+    error: null
   })
   
   const isInitialized = useRef(false)
@@ -67,10 +70,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       await supabase.auth.signOut()
     } finally {
-      setState({ user: null, profile: null, loading: false })
-      // Clear any remaining local storage to be absolutely sure
-      const storageKey = 'sb-' + new URL(import.meta.env.VITE_SUPABASE_URL).hostname + '-auth-token'
-      localStorage.removeItem(storageKey)
+      setState({ user: null, profile: null, loading: false, error: null })
+      
+      // Safe cleanup of local storage
+      try {
+        const url = import.meta.env.VITE_SUPABASE_URL
+        if (url) {
+          const storageKey = 'sb-' + new URL(url).hostname + '-auth-token'
+          localStorage.removeItem(storageKey)
+        }
+      } catch (e) {
+        // Ignore URL parsing errors
+      }
     }
   }
 
@@ -78,7 +89,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     let timeoutId: ReturnType<typeof setTimeout>
 
     const handleInitialAuth = async () => {
-      // Set safety timeout
+      // 0. Configuration check
+      if (!isSupabaseConfigured) {
+        setState({ 
+          user: null, 
+          profile: null, 
+          loading: false, 
+          error: 'Missing Supabase configuration. Please check your environment variables.' 
+        })
+        isInitialized.current = true
+        return
+      }
+
+      // 1. Set safety timeout
       timeoutId = setTimeout(() => {
         if (!isInitialized.current) {
           console.warn('[Auth] Initialization timed out after 8s. Forcing loading screen to clear.')
@@ -97,12 +120,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           profile = await fetchProfileData(user.id)
         }
         
-        setState({ user, profile, loading: false })
+        setState({ user, profile, loading: false, error: null })
         isInitialized.current = true
         if (timeoutId) clearTimeout(timeoutId)
       } catch (err) {
         console.error('[Auth] Initial check failed:', err)
-        setState(prev => ({ ...prev, loading: false }))
+        setState({ 
+          user: null, 
+          profile: null, 
+          loading: false, 
+          error: err instanceof Error ? err.message : 'Authentication failed to initialize'
+        })
         isInitialized.current = true
         if (timeoutId) clearTimeout(timeoutId)
       }
@@ -110,18 +138,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     handleInitialAuth()
 
+    if (!isSupabaseConfigured) return
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, session: Session | null) => {
-        // Skip if we're doing the initial load through handleInitialAuth
-        // unless it's a definite change event
         if (!isInitialized.current && event === 'INITIAL_SESSION') return
 
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
           const user = session?.user ?? null
           const profile = user ? await fetchProfileData(user.id) : null
-          setState({ user, profile, loading: false })
+          setState({ user, profile, loading: false, error: null })
         } else if (event === 'SIGNED_OUT') {
-          setState({ user: null, profile: null, loading: false })
+          setState({ user: null, profile: null, loading: false, error: null })
         }
       }
     )
