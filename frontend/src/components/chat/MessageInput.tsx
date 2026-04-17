@@ -201,18 +201,16 @@ export default function MessageInput({
              </DropdownMenu>
 
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-full bg-[#1c1c1e] text-[var(--accent)] hover:bg-[#2c2c2e] transition relative",
-                      isGeneratingAI && "animate-pulse",
-                      aiEnabled && "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[#1c1c1e]"
-                    )}
-                    title="AI Auto-Reply & Personality"
-                  >
-                    {isGeneratingAI ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <Sparkles className="h-4.5 w-4.5" />}
-                    {aiEnabled && <div className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-[var(--accent)] animate-pulse" />}
-                  </button>
+                <DropdownMenuTrigger
+                  className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-full bg-[#1c1c1e] text-[var(--accent)] hover:bg-[#2c2c2e] transition relative outline-none",
+                    isGeneratingAI && "animate-pulse",
+                    aiEnabled && "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[#1c1c1e]"
+                  )}
+                  title="AI Auto-Reply & Personality"
+                >
+                  {isGeneratingAI ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <Sparkles className="h-4.5 w-4.5" />}
+                  {aiEnabled && <div className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-[var(--accent)] animate-pulse" />}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent side="top" align="start" className="w-48 p-1 glass-panel-heavy border-[var(--border-subtle)]">
                   <div className="px-2 py-1.5 text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider">AI Settings</div>

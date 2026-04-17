@@ -1,6 +1,6 @@
 
 import { Message } from '@/types'
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold, type GenerativeModel } from '@google/generative-ai'
 import { useState, useRef, useEffect, useCallback } from 'react'
 
 // Available Gemini models (as of 2024)
@@ -23,8 +23,9 @@ export interface AIPersonality {
 
 export class GeminiAIReplyEngine {
   private genAI: GoogleGenerativeAI
-  private model: any
+  private model!: GenerativeModel
   private currentModel: GeminiModel = 'gemini-1.5-flash'
+
   private contextWindow: Message[] = []
   private personalities: Map<string, AIPersonality> = new Map()
   private userPreferences: Map<string, {
@@ -47,20 +48,20 @@ export class GeminiAIReplyEngine {
       // Safety settings to prevent harmful content
       safetySettings: [
         {
-          category: 'HARM_CATEGORY_HARASSMENT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+          category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
         },
         {
-          category: 'HARM_CATEGORY_HATE_SPEECH',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+          category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
         },
         {
-          category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+          category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
         },
         {
-          category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-          threshold: 'BLOCK_MEDIUM_AND_ABOVE'
+          category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+          threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
         }
       ],
       generationConfig: {
