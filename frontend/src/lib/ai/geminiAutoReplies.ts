@@ -25,7 +25,6 @@ export class GeminiAIReplyEngine {
   private genAI: GoogleGenerativeAI
   private model!: GenerativeModel
   private currentModel: GeminiModel = 'gemini-1.5-flash'
-
   private contextWindow: Message[] = []
   private personalities: Map<string, AIPersonality> = new Map()
   private userPreferences: Map<string, {
