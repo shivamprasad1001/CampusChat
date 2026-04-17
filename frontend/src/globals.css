@@ -15,13 +15,13 @@
     --font-mono: "JetBrains Mono", "SF Mono", "Cascadia Code", "Menlo", monospace;
 
     /* ── Surface Palette (macOS-inspired dark) ── */
-    --bg-base: #0c0e13;
-    --bg-surface: #141720;
-    --bg-elevated: #1a1f2b;
-    --bg-hover: #222836;
-    --bg-active: #293042;
-    --bg-glass: rgba(20, 23, 32, 0.72);
-    --bg-glass-heavy: rgba(20, 23, 32, 0.88);
+    --bg-base: #000000;
+    --bg-surface: #0a0a0a;
+    --bg-elevated: #161617;
+    --bg-hover: #1c1c1e;
+    --bg-active: #242426;
+    --bg-glass: rgba(0, 0, 0, 0.72);
+    --bg-glass-heavy: rgba(0, 0, 0, 0.88);
 
     /* ── Borders ── */
     --border-subtle: rgba(255, 255, 255, 0.06);
@@ -36,10 +36,16 @@
     --text-inverse: #0c0e13;
 
     /* ── Accent ── */
-    --accent: #5b9aff;
-    --accent-hover: #78b0ff;
-    --accent-muted: rgba(91, 154, 255, 0.15);
-    --accent-glow: rgba(91, 154, 255, 0.12);
+    --accent: #0084ff;
+    --accent-hover: #1a91ff;
+    --accent-muted: rgba(0, 132, 255, 0.15);
+    --accent-glow: rgba(0, 132, 255, 0.12);
+
+    /* ── Bubble Specifics (Mac-like) ── */
+    --bubble-me: #007aff;
+    --bubble-other: #262629;
+    --bubble-hover: #303032;
+    --bubble-text: #ffffff;
 
     /* ── Status (macOS traffic light inspired) ── */
     --online: #34d399;
@@ -322,6 +328,47 @@
   border-color: var(--border-subtle);
 }
 
+    /* ── Utilities ── */
+    .glass-panel {
+        background: var(--bg-glass);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--border-subtle);
+    }
+    .glass-panel-heavy {
+        background: var(--bg-glass-heavy);
+        backdrop-filter: blur(32px);
+        border: 1px solid var(--border-strong);
+    }
+
+    /* ── Bubble Tails ── */
+    .bubble-tail {
+        position: relative;
+    }
+    
+    .bubble-tail-me::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        right: -8px;
+        width: 16px;
+        height: 16px;
+        background: var(--bubble-me);
+        clip-path: polygon(0 0, 0% 100%, 100% 100%, 40% 0);
+        border-bottom-right-radius: 4px;
+    }
+
+    .bubble-tail-other::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: -8px;
+        width: 16px;
+        height: 16px;
+        background: var(--bubble-other);
+        clip-path: polygon(100% 0, 0 100%, 100% 100%, 60% 0);
+        border-bottom-left-radius: 4px;
+    }
+
 @utility mac-window {
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-default);
@@ -334,11 +381,11 @@
 @keyframes chat-enter {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(8px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 

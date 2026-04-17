@@ -1,4 +1,4 @@
-import { Fragment, ReactNode, useState } from 'react'
+import { Fragment, ReactNode, useState, useRef, useLayoutEffect, memo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Message } from '@/types'
@@ -8,11 +8,18 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import {
+  CheckCheck,
   Copy,
   CornerUpLeft,
+  Heart,
   MoreHorizontal,
+  Paperclip,
   Pin,
   SmilePlus,
+  Play,
+  Pause,
+  Volume2,
+  Loader2,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -22,6 +29,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAuth } from '@/hooks/useAuth'
 import { useAppShell } from '@/components/app-shell/AppShellContext'
+import { VoiceMessagePlayer } from './VoiceRecorder'
 
 interface MessageItemProps {
   message: Message
@@ -32,6 +40,7 @@ interface MessageItemProps {
   onEditMessage: (messageId: string, content: string) => void
   onDeleteMessage: (messageId: string) => void
   showHeader: boolean
+  showTail: boolean
 }
 
 
@@ -44,16 +53,18 @@ export default function MessageItem({
   onEditMessage,
   onDeleteMessage,
   showHeader,
+  showTail,
 }: MessageItemProps) {
   const { user } = useAuth()
   const { openThread } = useAppShell()
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(message.content || '')
-  
+  const [expanded, setExpanded] = useState(false)
+
   const isDeleted = message.is_deleted
   const profile = message.profiles
   const displayName = profile?.name || (isOwn ? 'You' : 'Unknown user')
-  
+
   const reactionsMap = (message.reactions || []).reduce(
     (acc, reaction) => {
       acc[reaction.emoji] = acc[reaction.emoji] || []
@@ -65,437 +76,330 @@ export default function MessageItem({
 
   const handleReplyClick = () => {
     if (isDeleted) return
-    openThread(message.id)
-    onReply(message) // Keep the parentId state in sync for the RoomPage
+    onReply(message)
   }
 
   return (
     <article
       className={cn(
-        'group/message relative mx-1 rounded-[var(--radius-md)] px-3 py-[var(--density-padding)] text-[var(--msg-font-size)] transition-colors duration-150 hover:bg-[var(--bg-hover)]/50',
-        !showHeader && 'pt-[calc(var(--density-padding)/2)]',
-        isOwn && 'flex-row-reverse',
+        'group/message relative mt-0.5 mb-0.5 flex w-full flex-col px-4 transition-all hover:bg-white/[0.02]',
+        isOwn ? 'items-end' : 'items-start',
         isDeleted && 'opacity-60'
       )}
-      style={{ animation: 'chat-enter 200ms var(--ease-spring)' }}
+      style={{ animation: 'chat-enter 240ms var(--ease-out)' }}
     >
-      {/* ... (rest of the header logic) */}
-      <div className={cn(
-        'pointer-events-none absolute top-2 hidden text-[10px] text-[var(--text-muted)] group-hover/message:block md:block md:opacity-0 md:group-hover/message:opacity-100 transition-opacity',
-        isOwn ? 'left-3' : 'right-3'
-      )}>
-        <time
-          dateTime={message.created_at}
-          aria-label={format(new Date(message.created_at), 'PPpp')}
+      {/* ... (Reply Context) ... */}
+      {!isDeleted && message.parent && (
+        <div
+          className={cn(
+            "mb-1 flex items-center gap-1.5 px-1 cursor-pointer hover:opacity-80 transition-opacity",
+            isOwn ? "flex-row-reverse" : "flex-row"
+          )}
+          onClick={() => onReply(message.parent as Message)}
         >
-          {format(new Date(message.created_at), 'p')}
-        </time>
-      </div>
-
-      <div className={cn('flex gap-[var(--density-gap)]', isOwn && 'flex-row-reverse')}>
-        <div className="w-8 shrink-0">
-          {showHeader ? (
-            <Avatar className="h-8 w-8 border border-[var(--border-default)] shadow-[var(--shadow-xs)]">
-              <AvatarImage src={profile?.avatar_url} />
-              <AvatarFallback
-                className="text-[10px] font-bold text-white"
-                style={{ background: createAvatarGradient(displayName) }}
-              >
-                {getInitials(displayName)}
-              </AvatarFallback>
-            </Avatar>
-          ) : (
-            <div className="h-8" aria-hidden="true" />
-          )}
+          <CornerUpLeft className="h-3 w-3 text-[var(--text-muted)]" strokeWidth={2.5} />
+          <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
+            {message.parent.profiles?.name || 'Someone'}
+          </span>
         </div>
+      )}
 
-        <div className={cn('min-w-0 flex-1', isOwn && 'flex flex-col items-end')}>
-          {showHeader && (
-            <div className={cn('mb-1 flex items-center gap-2', isOwn ? 'flex-row-reverse pr-0 pl-16' : 'pr-16')}>
-              <span className="text-[12px] font-bold text-[var(--text-primary)]">{displayName}</span>
-              {profile?.username && (
-                <span className="text-[10px] text-[var(--accent)] font-medium">@{profile.username}</span>
-              )}
-              <time className="text-[10px] text-[var(--text-muted)]">
-                {format(new Date(message.created_at), 'MMM d, p')}
-              </time>
-              {message.edited && !isDeleted && (
-                <span className="text-[10px] text-[var(--text-muted)] italic">(edited)</span>
-              )}
-              {message.is_pinned && !isDeleted && (
-                <div className="flex items-center gap-0.5 text-[10px] font-semibold text-[var(--accent)]">
-                  <Pin className="h-2.5 w-2.5 rotate-45" />
-                  <span>Pinned</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ... (rest of the rendering logic: isDeleted, isEditing, reactions) */}
-          {/* Reply Context Bar */}
-          {!isDeleted && message.parent && (
-            <div className={cn(
-              "mb-1 flex items-center gap-1.5 overflow-hidden rounded-[var(--radius-sm)] border-l-2 border-[var(--accent)] bg-black/5 dark:bg-white/5 py-1 px-2.5 max-w-[400px] cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-colors",
-              isOwn && "flex-row-reverse border-l-0 border-r-2"
+      {/* Message Row */}
+      <div className={cn('flex w-full items-end gap-2', isOwn ? 'flex-row-reverse' : 'flex-row')}>
+        {/* Avatar or Spacer */}
+        {showTail ? (
+          <div
+            className="flex h-7 w-7 flex-shrink-0 items-center justify-center overflow-hidden rounded-full shadow-sm select-none"
+            style={{
+              background: !profile?.avatar_url ? createAvatarGradient(displayName) : 'transparent',
+            }}
+          >
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt={displayName} className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-[10px] font-bold text-white/90">
+                {getInitials(displayName)}
+              </span>
             )}
-            onClick={() => message.parent?.id && openThread(message.parent.id)}
-            >
-              <CornerUpLeft className="h-3 w-3 shrink-0 text-[var(--accent)]" />
-              <div className="flex flex-1 items-center gap-1.5 min-w-0">
-                <span className="text-[11px] font-bold text-[var(--accent)] shrink-0">
-                  {message.parent.profiles?.name || 'Someone'}
-                </span>
-                <span className="truncate text-[11px] text-[var(--text-muted)]">
-                  {message.parent.is_deleted ? 'This message was deleted' : (message.parent.content || 'Shared a file')}
-                </span>
-              </div>
-            </div>
-          )}
+          </div>
+        ) : (
+          <div className="w-7 flex-shrink-0" /> // Spacer to maintain indentation
+        )}
 
+        {/* Bubble Container */}
+        <div className="relative max-w-[85%] md:max-w-[85%] lg:max-w-[1000px]">
           <div
             className={cn(
-              'max-w-[min(78ch,100%)] rounded-[var(--radius-md)] border border-transparent px-3 py-2 text-[var(--msg-font-size)] leading-[1.65] text-[var(--text-primary)]',
-              isOwn 
-                ? 'bg-[var(--accent)] bg-opacity-10 border-[var(--accent)]/15 text-left' 
-                : 'bg-[var(--bg-elevated)] border-[var(--border-subtle)]',
-              isDeleted && 'bg-black/5 dark:bg-white/5 italic text-[var(--text-muted)]',
-              !showHeader && (isOwn ? 'pr-0.5' : 'pl-0.5')
+              'relative rounded-[20px] px-3.5 py-2 px-4 shadow-sm transition-all',
+              isOwn
+                ? 'bg-[var(--bubble-me)] text-white'
+                : 'bg-[var(--bubble-other)] text-white',
+              // Tail at the bottom corner (Mac style)
+              showTail && (isOwn ? 'bubble-tail bubble-tail-me !rounded-br-[4px]' : 'bubble-tail bubble-tail-other !rounded-bl-[4px]'),
+              isEditing && 'ring-2 ring-[var(--accent)]',
+              isDeleted && 'bg-opacity-10 dark:bg-opacity-20 italic bg-white border border-dashed border-white/20'
             )}
           >
+            {/* Sender Name (for group context, only if NOT own and it's the start of a block) */}
+            {showHeader && !isOwn && !isDeleted && (
+              <div className="mb-0.5 text-[11px] font-bold text-[var(--accent)] opacity-90">
+                {displayName}
+              </div>
+            )}
+
             {isDeleted ? (
-              <span className="text-[13px]">This message was deleted</span>
+              <span className="text-[13px] opacity-70 italic  dark:text-black">This message was deleted</span>
             ) : isEditing ? (
-              <div className="flex flex-col gap-2 min-w-[200px] text-left">
+              <div className="flex flex-col gap-2 min-w-[220px]">
                 <textarea
-                  className="w-full resize-none rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-surface)] px-2.5 py-1.5 text-[13px] text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-muted)]"
+                  className="w-full resize-none rounded-[var(--radius-sm)] border-none bg-black/20 p-2 text-[13.5px] text-white focus:ring-0"
                   value={editContent}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditContent(e.target.value)}
+                  onChange={(e) => setEditContent(e.target.value)}
                   autoFocus
                   rows={2}
                 />
                 <div className="flex justify-end gap-2">
-                  <button onClick={() => setIsEditing(false)} className="text-[11px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition font-medium">Cancel</button>
-                  <button onClick={() => {
-                    onEditMessage(message.id, editContent);
-                    setIsEditing(false);
-                  }} className="text-[11px] bg-[var(--accent)] px-3 py-1 rounded-[var(--radius-sm)] text-white font-semibold hover:bg-[var(--accent-hover)] transition">Save</button>
+                  <button onClick={() => setIsEditing(false)} className="text-[10px] uppercase font-bold text-white/70 hover:text-white">Cancel</button>
+                  <button onClick={() => { onEditMessage(message.id, editContent); setIsEditing(false); }} className="text-[10px] uppercase font-bold text-white">Save</button>
                 </div>
               </div>
-            ) : message.content ? (
-              <MessageContent content={message.content} />
             ) : (
-              <p className="text-[var(--text-secondary)]">Shared an attachment</p>
+              <div className="flex flex-col gap-1">
+                {/* Replied-to preview block */}
+                {!isDeleted && message.parent && (
+                  <div className="mb-1 rounded-[12px] bg-black/20 px-2.5 py-1.5 text-[11px] text-white/80 border-l-2 border-white/30">
+                    <p className="truncate opacity-60 font-bold mb-0.5">{message.parent.profiles?.name || 'Someone'}</p>
+                    <p className="truncate line-clamp-1">{message.parent.content || 'Shared a file'}</p>
+                  </div>
+                )}
+
+                {message.file_url && message.file_type === 'voice' && (
+                  <VoiceMessagePlayer audioUrl={message.file_url} duration={message.duration || 0} />
+                )}
+
+                {message.content && <MessageContent content={message.content} isOwn={isOwn} onExpand={() => setExpanded(true)} />}
+
+                {message.file_url && message.file_type !== 'voice' && (
+                  <div className="mt-1.5 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] min-h-[100px] md:min-h-[160px] flex items-center justify-center">
+                    {message.file_type?.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|svg)($|\?)/i.test(message.file_url) ? (
+                      <img
+                        src={message.file_url}
+                        alt="Attachment"
+                        className="max-h-[300px] w-full object-cover transition-opacity duration-300 opacity-0"
+                        onLoad={(e) => (e.currentTarget.style.opacity = '1')}
+                      />
+                    ) : (
+                      <a href={message.file_url} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-3 py-2 text-[12px] hover:bg-white/5 transition">
+                        <Paperclip className="h-3.5 w-3.5" />
+                        <span className="truncate">Download Attachment</span>
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
 
-            {message.file_url && !isDeleted && (
-              <div className="mt-2 overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
-                {message.file_type?.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|svg)($|\?)/i.test(message.file_url) ? (
-                  <img
-                    src={message.file_url}
-                    alt="Attachment preview"
-                    className="max-h-[300px] w-full object-cover"
-                  />
-                ) : (
-                  <a
-                    href={message.file_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-between gap-3 px-4 py-3 text-[12px] text-[var(--text-primary)] hover:bg-[var(--bg-hover)]"
-                  >
-                    <span className="truncate">Download attachment</span>
-                    <span className="text-[11px] font-semibold text-[var(--accent)]">Open</span>
-                  </a>
+            {/* Bubble Footer (Time & Check) */}
+            {!isDeleted && !isEditing && (
+              <div className={cn(
+                "mt-0.5 flex items-center gap-1 text-[10px] opacity-60 font-medium",
+                isOwn ? "justify-end" : "justify-start"
+              )}>
+                <span>{format(new Date(message.created_at), 'p')}</span>
+                {isOwn && (
+                  <CheckCheck className="h-3 w-3" strokeWidth={2.5} />
                 )}
               </div>
             )}
           </div>
 
-          {!isDeleted && ((message.reply_count || 0) > 0) && (
-            <button 
-              onClick={handleReplyClick}
-              className="mt-1 flex items-center gap-1.5 text-[11px] font-bold text-[var(--accent)] hover:underline"
-            >
-              <CornerUpLeft className="h-3 w-3" />
-              {message.reply_count} {message.reply_count === 1 ? 'reply' : 'replies'}
-            </button>
-          )}
-
+          {/* Quick Reactions Display (Spaced below bubble) */}
           {!isDeleted && Object.keys(reactionsMap).length > 0 && (
-            <div className={cn('mt-1.5 flex flex-wrap gap-1.5', isOwn && 'justify-end')}>
+            <div className={cn('mt-2 flex flex-wrap gap-1.5', isOwn ? 'justify-end' : 'justify-start')}>
               {Object.entries(reactionsMap).map(([emoji, userIds]) => {
                 const hasReacted = !!user && userIds.includes(user.id)
-
                 return (
                   <button
                     key={emoji}
                     onClick={() => onToggleReaction(emoji)}
                     className={cn(
-                      'inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] font-medium shadow-[var(--shadow-xs)] transition hover:scale-[1.05]',
-                      hasReacted
-                        ? 'border-[var(--accent)] bg-[var(--accent-muted)] text-[var(--text-primary)]'
-                        : 'border-[var(--border-default)] bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
+                      'flex h-5 items-center gap-1 rounded-full px-1.5 text-[10px] font-bold shadow-sm transition hover:scale-110 active:scale-90',
+                      hasReacted ? 'bg-[var(--accent)] text-white' : 'bg-[#3e4042] text-white'
                     )}
-                    style={{ animation: 'reaction-pop 180ms var(--ease-spring)' }}
                   >
                     <span>{emoji}</span>
-                    <span className="font-bold">{userIds.length}</span>
+                    <span>{userIds.length}</span>
                   </button>
                 )
               })}
             </div>
           )}
         </div>
-      </div>
 
-      {/* Action toolbar */}
-      {!isDeleted && (
-      <div className={cn(
-        'pointer-events-none absolute top-0 hidden -translate-y-1/2 opacity-0 transition group-hover/message:pointer-events-auto group-hover/message:opacity-100 md:flex',
-        isOwn ? 'left-4' : 'right-4'
-      )}>
-        <div className="flex items-center gap-0.5 rounded-[var(--radius-sm)] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-0.5 shadow-[var(--shadow-md)]">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-              aria-label="Add reaction"
+        {/* Floating Action Menu (Hover) */}
+        {!isDeleted && !isEditing && (
+          <div className={cn(
+            'flex items-center gap-1 opacity-0 group-hover/message:opacity-100 transition-opacity duration-200',
+            isOwn ? 'flex-row' : 'flex-row-reverse'
+          )}>
+            <button
+              onClick={() => onToggleReaction('❤️')}
+              className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-red-400 transition"
             >
-              <SmilePlus className="h-3.5 w-3.5" strokeWidth={1.7} />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align={isOwn ? 'start' : 'end'} className="w-auto bg-transparent border-none p-0 shadow-none min-w-[352px]">
-              <Picker
-                data={data}
-                onEmojiSelect={(emoji: any) => onToggleReaction(emoji.native)}
-                theme="dark"
-              />
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <Heart className="h-3.5 w-3.5" strokeWidth={2.5} />
+            </button>
 
-          <ToolbarButton ariaLabel="Reply to message" onClick={handleReplyClick}>
-            <CornerUpLeft className="h-3.5 w-3.5" strokeWidth={1.7} />
-          </ToolbarButton>
-          
-          <ToolbarButton 
-            ariaLabel="Pin message" 
-            onClick={() => onTogglePin(message.id)}
-            className={message.is_pinned ? 'text-[var(--accent)] bg-[var(--accent-muted)]' : ''}
-          >
-            <Pin className={cn("h-3.5 w-3.5", message.is_pinned && "rotate-45")} strokeWidth={1.7} />
-          </ToolbarButton>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-              aria-label="More actions"
-            >
-              <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.7} />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align={isOwn ? 'start' : 'end'}
-              className="min-w-[170px] rounded-[var(--radius-md)] border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-[var(--shadow-lg)]"
-            >
-              <DropdownMenuItem onClick={() => navigator.clipboard.writeText(message.content || '')} className="cursor-pointer text-[12px]">
-                Copy Text
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleReplyClick} className="cursor-pointer text-[12px]">
-                Reply
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onTogglePin(message.id)} className="cursor-pointer text-[12px]">
-                {message.is_pinned ? 'Unpin Message' : 'Pin Message'}
-              </DropdownMenuItem>
-              {isOwn && (
-                <>
-                  <DropdownMenuItem onClick={() => setIsEditing(true)} className="cursor-pointer text-[12px]">
-                    Edit Message
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onDeleteMessage(message.id)} className="cursor-pointer text-[12px] text-red-400 focus:text-red-300">
-                    Delete Message
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
-      )}
-
-      {/* Mobile: Long-press / tap MoreHorizontal button */}
-      <div className={cn(
-        'absolute top-1 md:hidden',
-        isOwn ? 'left-2' : 'right-2'
-      )}>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className="inline-flex h-7 w-7 items-center justify-center rounded-[6px] text-[var(--text-muted)] opacity-0 group-hover/message:opacity-100 active:opacity-100"
-            aria-label="Message actions"
-          >
-            <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.8} />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align={isOwn ? 'start' : 'end'}
-            className="min-w-[170px] rounded-[var(--radius-md)] border-[var(--border-subtle)] bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-[var(--shadow-lg)]"
-          >
-            <DropdownMenuItem onClick={() => onToggleReaction('👍')} className="cursor-pointer text-[12px]">👍 React</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onReply(message)} className="cursor-pointer text-[12px]">Reply</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(message.content || '')} className="cursor-pointer text-[12px]">Copy Text</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onTogglePin(message.id)} className="cursor-pointer text-[12px]">
-              {message.is_pinned ? 'Unpin' : 'Pin'}
-            </DropdownMenuItem>
-            {isOwn && (
-              <>
-                <DropdownMenuItem onClick={() => setIsEditing(true)} className="cursor-pointer text-[12px]">Edit</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDeleteMessage(message.id)} className="cursor-pointer text-[12px] text-red-400">Delete</DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition">
+                <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={2.5} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align={isOwn ? 'end' : 'start'} className="min-w-[140px] rounded-xl border-none glass-panel shadow-2xl">
+                <DropdownMenuItem onClick={handleReplyClick} className="cursor-pointer text-[12px] gap-2">
+                  <CornerUpLeft className="h-3.5 w-3.5" /> Reply
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigator.clipboard.writeText(message.content || '')} className="cursor-pointer text-[12px] gap-2">
+                  <Copy className="h-3.5 w-3.5" /> Copy
+                </DropdownMenuItem>
+                {isOwn && (
+                  <>
+                    <DropdownMenuItem onClick={() => setIsEditing(true)} className="cursor-pointer text-[12px] gap-2">
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onDeleteMessage(message.id)} className="cursor-pointer text-[12px] gap-2 text-red-400">
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
       </div>
     </article>
   )
 }
 
-function ToolbarButton({
-  children,
-  ariaLabel,
-  onClick,
-  className,
-}: {
-  children: ReactNode
-  ariaLabel: string
-  onClick?: () => void
-  className?: string
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      onClick={onClick}
-      className={cn(
-        "inline-flex h-7 w-7 items-center justify-center rounded-[6px] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]",
-        className
-      )}
-    >
-      {children}
-    </button>
-  )
-}
 
-function MessageContent({ content }: { content: string }) {
+const MessageContent = memo(({ content, isOwn, onExpand }: { content: string; isOwn: boolean; onExpand: () => void }) => {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [needsTruncation, setNeedsTruncation] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const MAX_HEIGHT = 420 // px threshold
+
   // Regex for finding @usernames
   const mentionRegex = /@([a-zA-Z0-9_]+)/g;
-  
-  // Custom renderer for mention text within markdown
-  const renderers = {
-    text: ({ value }: { value: string }) => {
-      const parts = value.split(mentionRegex);
-      if (parts.length <= 1) return <>{value}</>;
 
-      const elements: React.ReactNode[] = [];
-      let lastIndex = 0;
-      let match;
-      
-      // Reset regex index
-      mentionRegex.lastIndex = 0;
-      
-      while ((match = mentionRegex.exec(value)) !== null) {
-        // Add text before mention
-        elements.push(value.substring(lastIndex, match.index));
-        // Add highlighted mention
-        elements.push(
-          <span key={match.index} className="font-bold text-[var(--accent)] hover:underline cursor-pointer">
-            {match[0]}
-          </span>
-        );
-        lastIndex = mentionRegex.lastIndex;
+  useLayoutEffect(() => {
+    if (containerRef.current) {
+      // Check if scrollHeight exceeds the threshold (plus a small buffer)
+      if (containerRef.current.scrollHeight > MAX_HEIGHT + 40) {
+        setNeedsTruncation(true)
+      } else {
+        setNeedsTruncation(false)
       }
-      
-      // Add remaining text
-      elements.push(value.substring(lastIndex));
-      return <>{elements}</>;
     }
-  };
+  }, [content])
 
   return (
-    <div className={cn("prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent prose-pre:m-0", isEmojiOnly(content) && 'prose-p:text-[28px] prose-p:leading-none')}>
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          a: ({ node, ...props }) => (
-            <a {...props} target="_blank" rel="noreferrer" className="text-[var(--accent)] hover:underline" />
-          ),
-          // We override the text node to handle mentions manually
-          p: ({ children }) => {
-            // Traverse children to find text nodes and apply mention highlighting
-            const traverse = (node: any): any => {
-              if (typeof node === 'string') {
-                const parts = node.split(mentionRegex);
-                if (parts.length <= 1) return node;
-
-                const nodes: React.ReactNode[] = [];
-                let i = 0;
-                const matches = node.matchAll(mentionRegex);
-                let lastPos = 0;
-
-                for (const match of matches) {
-                  nodes.push(node.substring(lastPos, match.index));
-                  nodes.push(
-                    <span key={match.index} className="font-bold text-[var(--accent)] cursor-pointer hover:opacity-80 transition-opacity">
-                      {match[0]}
-                    </span>
-                  );
-                  lastPos = (match.index || 0) + match[0].length;
-                  i++;
-                }
-                nodes.push(node.substring(lastPos));
-                return nodes;
-              }
-              if (Array.isArray(node)) return node.map(traverse);
-              if (node?.props?.children) {
-                return { ...node, props: { ...node.props, children: traverse(node.props.children) } };
-              }
-              return node;
-            };
-
-            return <p>{traverse(children)}</p>;
-          },
-          code({ node, inline, className, children, ...props }: any) {
-            const match = /language-(\w+)/.exec(className || '')
-            const language = match ? match[1] : 'text'
-            
-            if (!inline) {
-              return (
-                <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface)] my-3 not-prose">
-                  <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-1.5 text-[10px] font-semibold text-[var(--text-muted)] bg-[rgba(0,0,0,0.2)]">
-                    <span>{language}</span>
-                    <button
-                      type="button"
-                      onClick={() => navigator.clipboard.writeText(String(children).replace(/\n$/, ''))}
-                      className="inline-flex items-center gap-1 rounded-[6px] px-2 py-0.5 text-[10px] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
-                    >
-                      <Copy className="h-3 w-3" strokeWidth={1.8} />
-                      Copy
-                    </button>
-                  </div>
-                  <pre className="overflow-x-auto px-4 py-3 text-[12px] leading-6 text-[var(--text-primary)] m-0 bg-transparent">
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  </pre>
-                </div>
-              )
-            }
-            return (
-              <code className="rounded-[4px] bg-[var(--bg-elevated)] border border-[var(--border-subtle)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--text-primary)]" {...props}>
-                {children}
-              </code>
-            )
-          }
-        }}
+    <div className="relative">
+      <div
+        ref={containerRef}
+        className={cn(
+          "relative flex flex-col gap-1 overflow-hidden",
+          !isExpanded && needsTruncation ? "max-h-[420px]" : "max-h-none"
+        )}
       >
-        {content}
-      </ReactMarkdown>
+        <div className={cn("prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:p-0 prose-pre:bg-transparent prose-pre:m-0", isEmojiOnly(content) && 'prose-p:text-[28px] prose-p:leading-none')}>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ node, ...props }) => (
+                <a {...props} target="_blank" rel="noreferrer" className="text-[var(--accent)] hover:underline" />
+              ),
+              p: ({ children }) => {
+                const traverse = (node: any): any => {
+                  if (typeof node === 'string') {
+                    const matches = Array.from(node.matchAll(mentionRegex));
+                    if (matches.length === 0) return node;
+
+                    const nodes: React.ReactNode[] = [];
+                    let lastPos = 0;
+
+                    for (const match of matches) {
+                      nodes.push(node.substring(lastPos, match.index));
+                      nodes.push(
+                        <span key={match.index} className="font-bold text-[var(--accent)] cursor-pointer hover:opacity-80 transition-opacity">
+                          {match[0]}
+                        </span>
+                      );
+                      lastPos = (match.index || 0) + match[0].length;
+                    }
+                    nodes.push(node.substring(lastPos));
+                    return nodes;
+                  }
+                  if (Array.isArray(node)) return node.map(traverse);
+                  if (node?.props?.children) {
+                    return { ...node, props: { ...node.props, children: traverse(node.props.children) } };
+                  }
+                  return node;
+                };
+
+                return <p>{traverse(children)}</p>;
+              },
+              code({ node, inline, className, children, ...props }: any) {
+                const match = /language-(\w+)/.exec(className || '')
+                const language = match ? match[1] : 'text'
+
+                if (!inline) {
+                  return (
+                    <div className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface)] my-3 not-prose">
+                      <div className="flex items-center justify-between border-b border-[var(--border-subtle)] px-3 py-1.5 text-[10px] font-semibold text-[var(--text-muted)] bg-[rgba(0,0,0,0.2)]">
+                        <span>{language}</span>
+                        <button
+                          type="button"
+                          onClick={() => navigator.clipboard.writeText(String(children).replace(/\n$/, ''))}
+                          className="inline-flex items-center gap-1 rounded-[6px] px-2 py-0.5 text-[10px] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
+                        >
+                          <Copy className="h-3 w-3" strokeWidth={1.8} />
+                          Copy
+                        </button>
+                      </div>
+                      <pre className="overflow-x-auto px-4 py-3 text-[12px] leading-6 text-[var(--text-primary)] m-0 bg-transparent">
+                        <code className={className} {...props}>
+                          {children}
+                        </code>
+                      </pre>
+                    </div>
+                  )
+                }
+                return (
+                  <code className="rounded-[4px] bg-[var(--bg-elevated)] border border-[var(--border-subtle)] px-1.5 py-0.5 font-mono text-[11px] text-[var(--text-primary)]" {...props}>
+                    {children}
+                  </code>
+                )
+              }
+            }}
+          >
+            {content}
+          </ReactMarkdown>
+        </div>
+
+        {!isExpanded && needsTruncation && (
+          <div className="absolute bottom-0 left-0 h-24 w-full bg-gradient-to-t from-[#0a0a0a] to-transparent pointer-events-none z-10" />
+        )}
+      </div>
+
+      {needsTruncation && (
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="mt-1 text-[11px] font-bold text-[var(--accent)] hover:opacity-80 transition-opacity uppercase tracking-wider h-8 flex items-center"
+        >
+          {isExpanded ? 'Show Less' : 'Read More'}
+        </button>
+      )}
     </div>
   )
-}
+})
 
 function containsCodeBlock(content: string) {
   return content.includes('```')

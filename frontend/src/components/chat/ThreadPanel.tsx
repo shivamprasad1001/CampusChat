@@ -128,6 +128,7 @@ export default function ThreadPanel() {
                   message={parentMessage}
                   isOwn={parentMessage.sender_id === user?.id}
                   showHeader={true}
+                  showTail={true}
                   onToggleReaction={() => {}}
                   onReply={() => {}}
                   onTogglePin={() => {}}
@@ -152,6 +153,7 @@ export default function ThreadPanel() {
                   message={reply}
                   isOwn={reply.sender_id === user?.id}
                   showHeader={true}
+                  showTail={true}
                   onToggleReaction={() => {}}
                   onReply={() => {}}
                   onTogglePin={() => {}}

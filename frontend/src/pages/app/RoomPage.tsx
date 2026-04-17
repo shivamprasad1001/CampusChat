@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth'
 import MessageList from '@/components/chat/MessageList'
 import MessageInput from '@/components/chat/MessageInput'
 import RoomMembersPanel from '@/components/chat/RoomMembersPanel'
+import { useGeminiAI } from '@/lib/ai/geminiAutoReplies'
 import {
   Hash,
   Menu,
@@ -11,6 +12,7 @@ import {
   Search,
   Users,
   Plus,
+  Sparkles,
 } from 'lucide-react'
 import NotificationBell from '@/components/layout/NotificationBell'
 import { useEffect, useMemo, useState, useCallback } from 'react'
@@ -18,6 +20,8 @@ import { useDropzone } from 'react-dropzone'
 import api from '@/lib/api'
 import { Message, Profile, Room } from '@/types'
 import { useAppShell } from '@/components/app-shell/AppShellContext'
+
+const ROOMS_CACHE_KEY = 'campus_chat_rooms_v1'
 
 export default function RoomPage() {
   const { roomId } = useParams()
@@ -36,8 +40,31 @@ export default function RoomPage() {
     typingUsers, 
     onlineUserIds 
   } = useMessages(roomId as string)
+
+  const {
+    processIncomingMessage,
+    quickReplies,
+    isTyping: isAITyping,
+    aiEnabled,
+    setAiEnabled,
+    updatePreferences,
+    generateSummary
+  } = useGeminiAI(import.meta.env.VITE_GEMINI_API_KEY)
   
-  const [room, setRoom] = useState<Room | null>(null)
+  const [room, setRoom] = useState<Room | null>(() => {
+    // Instant Loading: Resolve details from cache if possible
+    try {
+      const cached = localStorage.getItem(ROOMS_CACHE_KEY)
+      if (cached) {
+        const rooms = JSON.parse(cached) as Room[]
+        return rooms.find(r => r.id === roomId) || null
+      }
+    } catch {
+      // Ignore cache errors
+    }
+    return null
+  })
+  
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const { toggleMobileSidebar, membersPanelOpen, toggleMembersPanel, focusSearch } = useAppShell()
 
@@ -54,6 +81,15 @@ export default function RoomPage() {
 
     fetchRoomDetails()
   }, [roomId])
+
+  // AI Auto-Reply Effect
+  useEffect(() => {
+    if (messages.length > 0 && user && aiEnabled) {
+      processIncomingMessage(messages, user.id, (reply) => {
+        handleSendMessage(reply)
+      })
+    }
+  }, [messages, user, aiEnabled, processIncomingMessage])
 
   const memberList = useMemo(() => {
     const membersMap = new Map<string, Partial<Profile> & { id: string; isOnline?: boolean }>()
@@ -90,9 +126,9 @@ export default function RoomPage() {
     })
   }, [messages, profile, onlineUserIds, user])
 
-  const handleSendMessage = (content: string, fileUrl?: string) => {
+  const handleSendMessage = (content: string, fileUrl?: string, fileType?: string) => {
     if (!user) return
-    sendMessage(content, fileUrl, user.id, replyingTo?.id)
+    sendMessage(content, fileUrl, user.id, replyingTo?.id, fileType)
     setReplyingTo(null)
   }
 
@@ -116,13 +152,31 @@ export default function RoomPage() {
     }
   }, [user, handleSendMessage])
 
+  const handleSummarize = async () => {
+    const summary = await generateSummary(messages)
+    if (summary) {
+      alert(`Conversation Summary:\n\n${summary}`)
+    }
+  }
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop,
     noClick: true,
     noKeyboard: true 
   })
 
-  if (!room) return null
+  // We only show a minimal loading/transition state if we have absolutely NO room data yet.
+  // If we have cached data, we render the UI immediately.
+  if (!room) {
+    return (
+      <div className="flex flex-1 items-center justify-center relative">
+        <div className="flex animate-pulse items-center gap-3 text-[var(--text-muted)]">
+          <Hash className="h-5 w-5" />
+          <span className="text-sm font-medium">Resolving channel…</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div {...getRootProps()} className="flex min-h-0 flex-1 bg-transparent relative">
@@ -184,6 +238,9 @@ export default function RoomPage() {
             >
               <Users className="h-3.5 w-3.5" strokeWidth={1.7} />
             </HeaderIconButton>
+            <HeaderIconButton label="Summarize Chat" onClick={handleSummarize} className="text-[var(--accent)]">
+              <Sparkles className="h-3.5 w-3.5" strokeWidth={1.7} />
+            </HeaderIconButton>
           </div>
         </header>
 
@@ -202,7 +259,10 @@ export default function RoomPage() {
           />
 
           <div className="mx-auto w-full max-w-[960px] px-4">
-            <TypingIndicator names={typingUsers.map((entry: { userId: string; name: string }) => entry.name)} />
+            <TypingIndicator 
+              names={typingUsers.map((entry: { userId: string; name: string }) => entry.name)} 
+              isAITyping={isAITyping}
+            />
           </div>
 
           <MessageInput 
@@ -210,6 +270,13 @@ export default function RoomPage() {
             onTyping={handleTyping} 
             replyingTo={replyingTo}
             onCancelReply={() => setReplyingTo(null)}
+            recentMessages={messages}
+            roomName={room.name}
+            quickReplies={quickReplies}
+            aiEnabled={aiEnabled}
+            onToggleAI={() => setAiEnabled(!aiEnabled)}
+            onSelectPersonality={(p) => user && updatePreferences(user.id, { personality: p })}
+            userId={user?.id}
           />
         </div>
       </div>
@@ -242,12 +309,14 @@ function HeaderIconButton({
   )
 }
 
-function TypingIndicator({ names }: { names: string[] }) {
-  if (names.length === 0) {
+function TypingIndicator({ names, isAITyping }: { names: string[], isAITyping?: boolean }) {
+  if (names.length === 0 && !isAITyping) {
     return <div className="h-6" aria-hidden="true" />
   }
 
-  const label = `${names.join(', ')} ${names.length === 1 ? 'is' : 'are'} typing...`
+  const aiLabel = isAITyping ? "AI is thinking..." : ""
+  const namesLabel = names.length > 0 ? `${names.join(', ')} ${names.length === 1 ? 'is' : 'are'} typing...` : ""
+  const label = [namesLabel, aiLabel].filter(Boolean).join(' | ')
 
   return (
     <div className="flex h-6 items-center gap-2 px-1 text-[11px] italic text-[var(--text-muted)]">

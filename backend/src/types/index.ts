@@ -39,6 +39,7 @@ export interface Message {
   edited: boolean;
   is_pinned?: boolean;
   parent_id?: string;
+  duration?: number;
   created_at: string;
   profiles?: Profile;
   reactions?: Reaction[];

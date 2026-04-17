@@ -9,7 +9,16 @@ import { RealtimePostgresInsertPayload } from '@supabase/supabase-js'
 import { useAuth } from '@/hooks/useAuth'
 
 export function useMessages(roomId: string) {
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>(() => {
+    // Instant Loading: Initialize from cache
+    try {
+      const cached = localStorage.getItem(`chat_history_${roomId}`)
+      return cached ? JSON.parse(cached) : []
+    } catch {
+      return []
+    }
+  })
+
   const [typingUsers, setTypingUsers] = useState<{ userId: string, name: string }[]>([])
   const [onlineUserIds, setOnlineUserIds] = useState<string[]>([])
   const [hasMore, setHasMore] = useState(true)
@@ -25,6 +34,9 @@ export function useMessages(roomId: string) {
         const { data } = await api.get(`/messages/${roomId}?limit=50`)
         setMessages(data)
         if (data.length < 50) setHasMore(false)
+        
+        // Cache the latest 50 messages for instant refresh next time
+        localStorage.setItem(`chat_history_${roomId}`, JSON.stringify(data))
       } catch (err) {
         console.error('Failed to fetch messages', err)
       }
@@ -125,9 +137,9 @@ export function useMessages(roomId: string) {
     }
   }, [roomId, user?.id])
 
-  const sendMessage = useCallback((content: string, fileUrl?: string, userId?: string, parentId?: string) => {
+  const sendMessage = useCallback((content: string, fileUrl?: string, userId?: string, parentId?: string, fileType?: string, duration?: number) => {
     if (socketRef.current) {
-      socketRef.current.emit('send_message', { roomId, content, fileUrl, userId, parentId })
+      socketRef.current.emit('send_message', { roomId, content, fileUrl, userId, parentId, fileType, duration })
     }
   }, [roomId])
 
@@ -166,7 +178,7 @@ export function useMessages(roomId: string) {
     setIsLoadingMore(true);
     try {
       const oldestMessage = messages[0];
-      const { data } = await api.get(`/messages/${roomId}?limit=50&before=${oldestMessage.created_at}`);
+      const { data } = await api.get(`/messages/${roomId}?limit=50&before=${encodeURIComponent(oldestMessage.created_at)}`);
       if (data.length < 50) setHasMore(false);
       
       setMessages(prev => {
