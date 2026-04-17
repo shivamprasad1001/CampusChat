@@ -10,8 +10,10 @@ interface SendMessagePayload {
   roomId: string;
   content: string;
   fileUrl?: string;
+  fileType?: string;
   userId: string;
   parentId?: string;
+  duration?: number;
 }
 
 interface TogglePinPayload {
@@ -68,7 +70,7 @@ export function setupSocketHandlers(io: Server) {
       console.log(`[Socket] User ${userId || socket.id} joined room: ${roomId}`);
     });
 
-    socket.on('send_message', async ({ roomId, content, fileUrl, userId, parentId }: SendMessagePayload) => {
+    socket.on('send_message', async ({ roomId, content, fileUrl, fileType, userId, parentId, duration }: SendMessagePayload) => {
       // 1. Insert message
       const { data: message, error } = await supabase
         .from('messages')
@@ -77,7 +79,9 @@ export function setupSocketHandlers(io: Server) {
           sender_id: userId,
           content,
           file_url: fileUrl,
-          parent_id: parentId
+          file_type: fileType,
+          parent_id: parentId,
+          duration: duration
         })
         .select(`
           *,

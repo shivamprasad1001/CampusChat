@@ -1,12 +1,11 @@
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { Message } from '@/types'
 import MessageItem from './MessageItem'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { useAuth } from '@/hooks/useAuth'
 import { format, isSameDay } from 'date-fns'
-import { ArrowDown, Loader2 } from 'lucide-react'
-import { useInView } from 'react-intersection-observer'
+import { ArrowDown, Loader2, Lock } from 'lucide-react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 
 interface MessageListProps {
   messages: Message[]
@@ -23,7 +22,7 @@ interface MessageListProps {
 
 export default function MessageList({
   messages,
-  roomName,
+  roomName: _roomName,
   hasMore,
   isLoadingMore,
   onFetchMore,
@@ -39,111 +38,106 @@ export default function MessageList({
   const [showJumpToLatest, setShowJumpToLatest] = useState(false)
   const [isAtBottom, setIsAtBottom] = useState(true)
 
-  const { ref: inViewRef, inView } = useInView({
-    threshold: 0,
-    rootMargin: '100px 0px 0px 0px',
-  })
-
-  useEffect(() => {
-    if (inView && hasMore && onFetchMore && !isLoadingMore) {
-      onFetchMore()
-    }
-  }, [inView, hasMore, onFetchMore, isLoadingMore])
-
+  // Memoized grouping logic
   const items = useMemo(() => {
     return messages.map((message, index) => {
       const previousMessage = messages[index - 1]
+      const nextMessage = messages[index + 1]
       const showHeader =
         !previousMessage ||
         previousMessage.sender_id !== message.sender_id ||
         new Date(message.created_at).getTime() - new Date(previousMessage.created_at).getTime() >
-          5 * 60 * 1000 ||
+        5 * 60 * 1000 ||
         !isSameDay(new Date(previousMessage.created_at), new Date(message.created_at))
+
+      const showTail =
+        !nextMessage ||
+        nextMessage.sender_id !== message.sender_id ||
+        new Date(nextMessage.created_at).getTime() - new Date(message.created_at).getTime() >
+        5 * 60 * 1000 ||
+        !isSameDay(new Date(nextMessage.created_at), new Date(message.created_at))
 
       const showDateSeparator =
         !previousMessage ||
         !isSameDay(new Date(previousMessage.created_at), new Date(message.created_at))
 
-      return { message, showHeader, showDateSeparator }
+      return { message, showHeader, showTail, showDateSeparator }
     })
   }, [messages])
 
-  useEffect(() => {
-    const viewport = scrollRef.current?.querySelector(
-      '[data-slot="scroll-area-viewport"]'
-    ) as HTMLDivElement | null
+  // Virtualizer setup
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 100,
+    overscan: 10,
+    getItemKey: useCallback((index: number) => items[index].message.id, [items]),
+  })
 
-    if (!viewport) return
+  // Infinite scroll trigger
+  useEffect(() => {
+    if (!hasMore || isLoadingMore || !onFetchMore) return
+
+    const scrollElement = scrollRef.current
+    if (!scrollElement) return
 
     const handleScroll = () => {
-      const distanceFromBottom =
-        viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight
-      const atBottom = distanceFromBottom < 48
-      setIsAtBottom(atBottom)
-      if (atBottom) {
-        setShowJumpToLatest(false)
+      if (scrollElement.scrollTop < 100 && !isLoadingMore) {
+        onFetchMore()
       }
     }
 
-    handleScroll()
-    viewport.addEventListener('scroll', handleScroll)
-    return () => viewport.removeEventListener('scroll', handleScroll)
-  }, [])
+    scrollElement.addEventListener('scroll', handleScroll)
+    return () => scrollElement.removeEventListener('scroll', handleScroll)
+  }, [hasMore, isLoadingMore, onFetchMore])
 
+  // Scroll position management
   useEffect(() => {
-    const viewport = scrollRef.current?.querySelector(
-      '[data-slot="scroll-area-viewport"]'
-    ) as HTMLDivElement | null
-
+    const viewport = scrollRef.current
     if (!viewport) return
 
+    const handleScrollStatus = () => {
+      const distanceFromBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight
+      const atBottom = distanceFromBottom < 50
+      setIsAtBottom(atBottom)
+      if (atBottom) setShowJumpToLatest(false)
+    }
+
+    viewport.addEventListener('scroll', handleScrollStatus)
+    return () => viewport.removeEventListener('scroll', handleScrollStatus)
+  }, [])
+
+  // Handle new messages and auto-scroll
+  useEffect(() => {
     const hasNewMessages = messages.length > previousCountRef.current
     previousCountRef.current = messages.length
 
-    if (!hasNewMessages) return
-
-    if (isAtBottom) {
-      requestAnimationFrame(() => {
-        viewport.scrollTo({
-          top: viewport.scrollHeight,
-          behavior: 'smooth',
+    if (hasNewMessages) {
+      if (isAtBottom) {
+        requestAnimationFrame(() => {
+          virtualizer.scrollToIndex(items.length - 1, { behavior: 'smooth' })
         })
-      })
-      return
+      } else {
+        setShowJumpToLatest(true)
+      }
     }
+  }, [messages.length, isAtBottom, virtualizer, items.length])
 
-    requestAnimationFrame(() => {
-      setShowJumpToLatest(true)
-    })
-  }, [isAtBottom, messages])
-
-  const scrollToBottom = () => {
-    const viewport = scrollRef.current?.querySelector(
-      '[data-slot="scroll-area-viewport"]'
-    ) as HTMLDivElement | null
-
-    if (!viewport) return
-
-    viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' })
+  const scrollToBottom = useCallback(() => {
+    virtualizer.scrollToIndex(items.length - 1, { behavior: 'smooth' })
     setShowJumpToLatest(false)
-  }
+  }, [virtualizer, items.length])
 
   if (messages.length === 0) {
     return (
       <div className="relative flex flex-1 items-center justify-center px-6 py-10">
         <div className="mx-auto flex max-w-[340px] flex-col items-center text-center">
-          <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[var(--radius-xl)] border border-[var(--border-subtle)] bg-[radial-gradient(circle_at_top,rgba(91,154,255,0.14),transparent_60%),var(--bg-surface)] shadow-[var(--shadow-md)]">
-            <svg width="48" height="48" viewBox="0 0 52 52" fill="none" aria-hidden="true">
-              <rect x="8" y="11" width="36" height="25" rx="10" stroke="var(--accent)" strokeWidth="1.5" opacity="0.88" />
-              <path d="M18 20H34M18 26H29" stroke="var(--text-secondary)" strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M21 36L18 42L27 36" fill="var(--bg-surface)" stroke="var(--accent)" strokeWidth="1.5" strokeLinejoin="round" />
-            </svg>
+          <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-[var(--radius-xl)] bg-[#242526] text-white/40 shadow-xl">
+            <Lock className="h-8 w-8" />
           </div>
-          <h2 className="font-display text-lg font-bold text-[var(--text-primary)]">
-            Welcome to #{roomName}
-          </h2>
+          <h2 className="font-display text-lg font-bold text-white">Secure Channel</h2>
           <p className="mt-2 text-[12px] text-[var(--text-secondary)]">
-            Start the conversation and set the tone for the discussion.
+            Messages are end-to-end encrypted. Standard room rules apply.
           </p>
         </div>
       </div>
@@ -151,42 +145,70 @@ export default function MessageList({
   }
 
   return (
-    <div className="relative flex min-h-0 flex-1">
-      <ScrollArea ref={scrollRef} className="h-full min-h-0 flex-1">
+    <div className="relative flex min-h-0 flex-1 bg-black">
+      <div
+        ref={scrollRef}
+        className="h-full w-full overflow-y-auto overflow-x-hidden scroll-smooth"
+        style={{ scrollbarGutter: 'stable' }}
+      >
         <div
-          role="log"
-          aria-live="polite"
-          aria-relevant="additions text"
-          className="mx-auto flex w-full max-w-[960px] flex-col px-2 py-4 pb-8 md:px-4"
+          className="relative w-full"
+          style={{ height: `${virtualizer.getTotalSize()}px` }}
         >
-          {hasMore && (
-            <div ref={inViewRef} className="flex justify-center py-4">
-              {isLoadingMore && <Loader2 className="h-5 w-5 animate-spin text-[var(--accent)]" />}
+          {/* Header & Encryption Notice (Fixed at the very top of the virtual space) */}
+          <div className="absolute top-0 left-0 w-full flex flex-col items-center pt-8 pb-4 pointer-events-none">
+             <div className="flex items-center gap-1.5 text-[11px] font-bold text-white/30 uppercase tracking-[0.1em]">
+              <Lock className="h-3 w-3" strokeWidth={3} />
+              <span>Secure Channel</span>
             </div>
-          )}
-          {items.map(({ message, showHeader, showDateSeparator }) => (
-            <div key={message.id}>
-              {showDateSeparator && (
-                <div className="sticky top-3 z-10 my-4 flex justify-center">
-                  <span className="rounded-full border border-[var(--border-subtle)] glass-panel-heavy px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                    {format(new Date(message.created_at), 'EEEE, MMMM d')}
-                  </span>
+          </div>
+
+          {virtualizer.getVirtualItems().map((virtualItem) => {
+            const { message, showHeader, showTail, showDateSeparator } = items[virtualItem.index]
+            
+            return (
+              <div
+                key={virtualItem.key}
+                data-index={virtualItem.index}
+                ref={virtualizer.measureElement}
+                className="absolute top-0 left-0 w-full"
+                style={{
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
+              >
+                <div className="mx-auto w-full max-w-[960px] px-4 md:px-0">
+                  {showDateSeparator && (
+                    <div className="my-6 flex justify-center">
+                      <span className="text-[11px] font-bold text-white/25 uppercase tracking-widest">
+                        {format(new Date(message.created_at), 'EEEE, MMM d')}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {virtualItem.index === 0 && isLoadingMore && (
+                    <div className="flex justify-center py-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-[var(--accent)]" />
+                    </div>
+                  )}
+
+                  <MessageItem
+                    message={message}
+                    isOwn={message.sender_id === user?.id}
+                    showHeader={showHeader}
+                    showTail={showTail}
+                    onToggleReaction={(emoji) => onToggleReaction(message.id, emoji)}
+                    onReply={onReply}
+                    onTogglePin={onTogglePin}
+                    onEditMessage={onEditMessage}
+                    onDeleteMessage={onDeleteMessage}
+                  />
+                  <div className="h-1" /> {/* Spacing between messages */}
                 </div>
-              )}
-              <MessageItem
-                message={message}
-                isOwn={message.sender_id === user?.id}
-                showHeader={showHeader}
-                onToggleReaction={(emoji) => onToggleReaction(message.id, emoji)}
-                onReply={onReply}
-                onTogglePin={onTogglePin}
-                onEditMessage={onEditMessage}
-                onDeleteMessage={onDeleteMessage}
-              />
-            </div>
-          ))}
+              </div>
+            )
+          })}
         </div>
-      </ScrollArea>
+      </div>
 
       {showJumpToLatest && (
         <div className="pointer-events-none absolute bottom-6 left-1/2 z-10 -translate-x-1/2">

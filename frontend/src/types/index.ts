@@ -45,6 +45,7 @@ export interface Message {
   is_deleted?: boolean;
   deleted_at?: string;
   reply_count?: number;
+  duration?: number;
   created_at: string;
   profiles?: Profile;
   reactions?: Reaction[];

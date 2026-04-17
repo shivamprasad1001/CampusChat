@@ -1,14 +1,27 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import api from '@/lib/api'
 import { Room } from '@/types'
 import { Link, useParams } from 'react-router-dom'
 import { ChevronDown, Hash, Lock, MessageSquare, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppShell } from '@/components/app-shell/AppShellContext'
+import { useAuth } from '@/hooks/useAuth'
+
+const ROOMS_CACHE_KEY = 'campus_chat_rooms_v1'
 
 export default function RoomList() {
-  const [rooms, setRooms] = useState<Room[]>([])
-  const [loading, setLoading] = useState(true)
+  const { user, loading: authLoading } = useAuth()
+  const [rooms, setRooms] = useState<Room[]>(() => {
+    // Instant Loading: Initialize from cache if available
+    try {
+      const cached = localStorage.getItem(ROOMS_CACHE_KEY)
+      return cached ? JSON.parse(cached) : []
+    } catch {
+      return []
+    }
+  })
+  
+  const [loading, setLoading] = useState(!rooms.length)
   const [error, setError] = useState<string | null>(null)
   const [channelsOpen, setChannelsOpen] = useState(true)
   const [dmsOpen, setDmsOpen] = useState(true)
@@ -16,22 +29,40 @@ export default function RoomList() {
   const { searchQuery, setMobileSidebarOpen } = useAppShell()
 
   useEffect(() => {
+    // Wait for auth to at least attempt rehydration
+    if (authLoading) return
+
     const fetchRooms = async () => {
-      setLoading(true)
+      // If we're not logged in, clear list and stop
+      if (!user) {
+        setRooms([])
+        setLoading(false)
+        return
+      }
+
+      // If we have rooms from cache, we don't show the skeleton during refresh
+      if (!rooms.length) setLoading(true)
+      
       setError(null)
 
       try {
         const { data } = await api.get('/rooms')
         setRooms(data)
+        // Update cache for next refresh
+        localStorage.setItem(ROOMS_CACHE_KEY, JSON.stringify(data))
       } catch (err) {
         console.error('Failed to fetch rooms', err)
-        setError('Unable to load rooms. Please refresh the page or try again later.')
+        // Only show full error UI if we have zero data to show
+        if (!rooms.length) {
+          setError('Unable to load rooms. Please refresh the page or try again later.')
+        }
       } finally {
         setLoading(false)
       }
     }
+    
     fetchRooms()
-  }, [])
+  }, [user, authLoading])
 
   const filteredRooms = rooms.filter((room) =>
     room.name.toLowerCase().includes(searchQuery.toLowerCase())

@@ -13,6 +13,7 @@ import uploadRoutes from './routes/upload.js';
 import dmRoutes from './routes/dm.js';
 import reactionsRoutes from './routes/reactions.js';
 import notificationsRoutes from './routes/notifications.js';
+import aiRoutes from './routes/ai.js';
 
 dotenv.config();
 
@@ -96,6 +97,7 @@ app.use('/upload', uploadRoutes);
 app.use('/dm', dmRoutes);
 app.use('/reactions', reactionsRoutes);
 app.use('/notifications', notificationsRoutes);
+app.use('/ai', aiRoutes);
 
 // Error handling
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

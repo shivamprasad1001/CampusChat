@@ -13,8 +13,13 @@ router.get('/:roomId', authMiddleware, async (req: AuthRequest, res: Response) =
   }
 
   const limit = parseInt(req.query.limit as string) || 50;
-  const before = req.query.before as string;
+  let before = req.query.before as string;
   const parentId = req.query.parentId as string;
+
+  // Handle cases where the '+' in the timestamp was mangled into a space
+  if (before && before.includes(' ')) {
+    before = before.replace(/\s/g, '+');
+  }
 
   let query = supabase
     .from('messages')
